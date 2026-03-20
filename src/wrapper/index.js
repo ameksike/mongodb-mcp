@@ -63,16 +63,44 @@ const env = {
  */
 const child = spawn(MCP_CMD, [], {
     env,
-    stdio: 'inherit',
+    stdio: ['inherit', 'pipe', 'pipe'],
     shell: isWindows,
 });
 
-/**
- * Handles graceful shutdown of the MCP server child process.
- * Triggered by SIGINT (Ctrl+C) or SIGTERM signals.
- *
- * @returns {void}
- */
+const baseUrl = `http://${env.MDB_MCP_HTTP_HOST}:${env.MDB_MCP_HTTP_PORT}`;
+
+child.stdout.on('data', (data) => {
+    process.stdout.write(`[mcp] ${data}`);
+});
+
+child.stderr.on('data', (data) => {
+    process.stderr.write(`[mcp:err] ${data}`);
+});
+
+console.log(`
+========================================
+  MongoDB MCP Server
+========================================
+  Status  : running
+  URL     : ${baseUrl}
+  SSE     : ${baseUrl}/sse
+  Messages: ${baseUrl}/messages
+----------------------------------------
+  LLM Integration (e.g. Claude, GPT):
+
+  Add to your MCP client config:
+
+  {
+    "servers": {
+      "mongodb": {
+        "type": "sse",
+        "url": "${baseUrl}/sse"
+      }
+    }
+  }
+========================================
+`);
+
 const shutdown = () => {
     console.log('\n[launcher] Shutting down MongoDB MCP server...');
     if (!child.killed) {
