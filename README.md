@@ -18,3 +18,4 @@ taskkill /IM node.exe /F
 - [MongoDB MCP Server Security Best Practices](https://www.mongodb.com/docs/mcp-server/security-best-practices/) — Security recommendations this project implements: read-only defaults, least-privilege access, connection string handling, and input validation.
 - [MongoDB MCP Server Tools Reference](https://www.mongodb.com/docs/mcp-server/tools/) — Complete reference for all available MongoDB MCP tools and their parameters.
 - [MCP Authorization Specification](https://modelcontextprotocol.io/docs/tutorials/security/authorization) — The MCP protocol authorization tutorial covering OAuth 2.0 flows, token handling, and security considerations for remote MCP servers.
+- [Understanding Authorization in MCP](https://modelcontextprotocol.io/docs/tutorials/security/authorization)
