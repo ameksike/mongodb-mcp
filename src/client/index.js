@@ -3,6 +3,11 @@
  * @description Standards-compliant MCP client that connects to a MongoDB MCP Server
  *              via Streamable HTTP transport and runs a diagnostic suite.
  *
+ *              Supports two modes:
+ *              - Direct: connects straight to the MCP Server (no auth)
+ *              - OAuth:  obtains a Bearer token from Keycloak, then connects
+ *                        through the Auth Proxy (Delegated Authorization)
+ *
  *              Implements the full MCP lifecycle per the specification:
  *              1. Initialization  - capability negotiation & version agreement
  *              2. Operation       - tool discovery, resource listing, tool calls, ping
@@ -10,11 +15,11 @@
  *
  * @see https://modelcontextprotocol.io/docs/learn/client-concepts
  * @see https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle
- * @see https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
+ * @see https://www.mongodb.com/docs/mcp-server/security-best-practices/
  *
  * Usage:
- *   node src/client/index.js                                          # defaults
- *   MCP_SERVER_URL=http://host:port node src/client/index.js          # custom URL
+ *   node src/client/index.js                     # direct (no auth)
+ *   node src/client/index.js --auth              # via Keycloak + Auth Proxy
  */
 
 import 'dotenv/config';
@@ -26,10 +31,53 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 // Configuration
 // ---------------------------------------------------------------------------
 
-const SERVER_URL = process.env.MCP_SERVER_URL
+const useAuth = process.argv.includes('--auth');
+
+const DIRECT_URL = process.env.MCP_SERVER_URL
     ?? `http://${process.env.MDB_MCP_HTTP_HOST ?? '127.0.0.1'}:${process.env.MDB_MCP_HTTP_PORT ?? '8008'}`;
 
-const REQUEST_TIMEOUT_MS = 10_000;
+const PROXY_URL = process.env.MCP_PROXY_URL ?? 'http://127.0.0.1:3030';
+
+const SERVER_URL = useAuth ? PROXY_URL : DIRECT_URL;
+
+const {
+    KEYCLOAK_URL = 'http://localhost:8080',
+    KEYCLOAK_REALM = 'mcp',
+    KEYCLOAK_CLIENT_ID = 'mcp-client',
+    MCP_AUTH_USERNAME = 'mcpuser',
+    MCP_AUTH_PASSWORD = 'mcppass',
+} = process.env;
+
+// ---------------------------------------------------------------------------
+// OAuth 2.1 — Resource Owner Password Grant (for testing only)
+// In production, use Authorization Code + PKCE flow.
+// ---------------------------------------------------------------------------
+
+async function obtainAccessToken() {
+    const tokenUrl = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`;
+
+    const body = new URLSearchParams({
+        grant_type: 'password',
+        client_id: KEYCLOAK_CLIENT_ID,
+        username: MCP_AUTH_USERNAME,
+        password: MCP_AUTH_PASSWORD,
+        scope: 'openid mcp:access',
+    });
+
+    const res = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+    });
+
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Token request failed (${res.status}): ${text}`);
+    }
+
+    const data = await res.json();
+    return data.access_token;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,12 +90,6 @@ const fail = (name, err) => console.error(`  FAIL  ${name} -> ${err}`);
 let passed = 0;
 let failed = 0;
 
-/**
- * Execute a test step, report result, and track stats.
- * @param {string}   name Test label
- * @param {Function} fn   Async function that returns a result
- * @returns {*} The value returned by fn, or undefined on failure.
- */
 async function run(name, fn) {
     try {
         const result = await fn();
@@ -62,18 +104,22 @@ async function run(name, fn) {
 }
 
 /**
- * Attempt Streamable HTTP first; fall back to SSE for older servers.
- * This follows the backwards-compatibility strategy from the MCP spec.
+ * Create transport with optional Bearer token for auth proxy.
+ * Attempts Streamable HTTP first, falls back to SSE for older servers.
  * @see https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#backwards-compatibility
- * @returns {import('@modelcontextprotocol/sdk/client/streamableHttp.js').StreamableHTTPClientTransport|import('@modelcontextprotocol/sdk/client/sse.js').SSEClientTransport}
  */
-function createTransport() {
+function createTransport(accessToken) {
+    const headers = accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : undefined;
+
     return {
         async connect(client) {
             // 1. Try Streamable HTTP (current spec)
             try {
                 const transport = new StreamableHTTPClientTransport(
                     new URL(`${SERVER_URL}/mcp`),
+                    { requestInit: { headers } },
                 );
                 await client.connect(transport);
                 log('transport', 'Connected via Streamable HTTP');
@@ -85,6 +131,7 @@ function createTransport() {
             // 2. Fallback to legacy SSE transport (protocol 2024-11-05)
             const transport = new SSEClientTransport(
                 new URL(`${SERVER_URL}/sse`),
+                { requestInit: { headers } },
             );
             await client.connect(transport);
             log('transport', 'Connected via SSE (legacy)');
@@ -103,29 +150,42 @@ async function main() {
   MCP Test Client — Diagnostic Suite
 ========================================
   Target : ${SERVER_URL}
+  Auth   : ${useAuth ? 'OAuth 2.1 (Keycloak)' : 'none (direct)'}
 ========================================
 `);
 
+    // -- Phase 0: Authentication (if --auth) ----------------------------------
+
+    let accessToken;
+    if (useAuth) {
+        log('auth', 'Requesting access token from Keycloak...');
+        accessToken = await run('obtain access token', async () => {
+            const token = await obtainAccessToken();
+            log('auth', `Token obtained (${token.length} chars)`);
+            return token;
+        });
+
+        if (!accessToken) {
+            console.error('\nCannot continue without a token. Exiting.');
+            process.exit(1);
+        }
+    }
+
     // -- Phase 1: Initialization ----------------------------------------------
-    // The SDK handles the full handshake:
-    //   client -> initialize (protocolVersion, capabilities, clientInfo)
-    //   server -> InitializeResult (protocolVersion, capabilities, serverInfo)
-    //   client -> notifications/initialized
-    // We declare client capabilities so the server knows what we support.
 
     const client = new Client(
         { name: 'mcp-test-client', version: '1.0.0' },
         {
             capabilities: {
-                roots:      { listChanged: true },
-                sampling:   {},
+                roots:    { listChanged: true },
+                sampling: {},
             },
         },
     );
 
     log('init', 'Phase 1: Initialization — connecting & negotiating capabilities...');
 
-    const connector = createTransport();
+    const connector = createTransport(accessToken);
     const serverInfo = await run('initialize & handshake', async () => {
         await connector.connect(client);
         const info = client.getServerVersion();

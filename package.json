@@ -8,7 +8,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "mcp:wrapper:start": "node src/wrapper/index.js",
     "mcp:client:start": "node src/client/index.js",
-    "mcp:docker:start": "docker-compose up"
+    "mcp:client:auth": "node src/client/index.js --auth",
+    "mcp:docker:start": "docker-compose up",
+    "mcp:docker:stop": "docker-compose down"
   },
   "repository": {
     "type": "git",
