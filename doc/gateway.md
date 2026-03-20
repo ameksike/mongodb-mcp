@@ -27,7 +27,7 @@ and the [MCP Authorization specification](https://modelcontextprotocol.io/docs/t
                                      │ + role extraction
 ┌────────────┐  Bearer      ┌────────┴────────┐           ┌──────────────┐
 │   Client   │──────token──>│  RBAC Gateway   │──────────>│  MCP Server  │
-│   (Agent)  │              │  :4000          │ (no auth) │  :8008       │
+│   (Agent)  │              │  :4040          │ (no auth) │  :8008       │
 └────────────┘              │                 │           └──────────────┘
                             │  Intercepts:    │
                             │  - tools/list   │
@@ -166,7 +166,7 @@ Expected output:
 ========================================
   MCP RBAC Gateway
 ========================================
-  Listening : http://0.0.0.0:4000
+  Listening : http://0.0.0.0:4040
   Upstream  : http://127.0.0.1:8008
   Keycloak  : http://localhost:8080/realms/mcp
   Audience  : mcp-server
@@ -419,7 +419,7 @@ gateway using standard MCP Streamable HTTP requests.
 ### Initialize a session
 
 ```bash
-curl -s -X POST http://localhost:4000/mcp \
+curl -s -X POST http://localhost:4040/mcp \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
@@ -438,7 +438,7 @@ curl -s -X POST http://localhost:4000/mcp \
 ### List available tools (filtered by role)
 
 ```bash
-curl -s -X POST http://localhost:4000/mcp \
+curl -s -X POST http://localhost:4040/mcp \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
@@ -455,7 +455,7 @@ An admin will see all 17 tools. A viewer will only see 6.
 ### Call a tool
 
 ```bash
-curl -s -X POST http://localhost:4000/mcp \
+curl -s -X POST http://localhost:4040/mcp \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
@@ -475,7 +475,7 @@ curl -s -X POST http://localhost:4000/mcp \
 If a viewer tries to call `aggregate`:
 
 ```bash
-curl -s -X POST http://localhost:4000/mcp \
+curl -s -X POST http://localhost:4040/mcp \
   -H "Authorization: Bearer $VIEWER_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \

@@ -30,7 +30,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // ---------------------------------------------------------------------------
 
 const {
-    GATEWAY_PORT = '4000',
+    GATEWAY_PORT = '4040',
     MCP_UPSTREAM_URL = `http://${process.env.MDB_MCP_HTTP_HOST ?? '127.0.0.1'}:${process.env.MDB_MCP_HTTP_PORT ?? '8008'}`,
     KEYCLOAK_URL = 'http://localhost:8080',
     KEYCLOAK_REALM = 'mcp',
@@ -116,17 +116,35 @@ async function verifyToken(token) {
  * @param {string[]} allowedTools
  * @returns {object} Modified response
  */
-function filterToolsListResponse(body, allowedTools) {
-    if (!body?.result?.tools || allowedTools.includes('*')) return body;
+function filterToolsListResponse(body, allowedTools, user, role) {
+    if (!body?.result?.tools) return body;
 
-    const original = body.result.tools.length;
-    body.result.tools = body.result.tools.filter((t) =>
-        allowedTools.includes(t.name),
-    );
-    const filtered = body.result.tools.length;
+    if (allowedTools.includes('*')) {
+        const names = body.result.tools.map((t) => t.name);
+        console.log(`[gateway:rbac] tools/list for user="${user}" role="${role}" — ALL ${names.length} tools enabled:`);
+        names.forEach((n) => console.log(`  [gateway:rbac]   ✔ ${n}`));
+        return body;
+    }
 
-    if (original !== filtered) {
-        console.log(`[gateway:rbac] tools/list filtered: ${original} -> ${filtered}`);
+    const original = body.result.tools;
+    const kept = [];
+    const removed = [];
+
+    for (const t of original) {
+        if (allowedTools.includes(t.name)) {
+            kept.push(t);
+        } else {
+            removed.push(t.name);
+        }
+    }
+
+    body.result.tools = kept;
+
+    console.log(`[gateway:rbac] tools/list for user="${user}" role="${role}" — ${kept.length}/${original.length} tools enabled:`);
+    kept.forEach((t) => console.log(`  [gateway:rbac]   ✔ ${t.name}`));
+    if (removed.length) {
+        console.log(`[gateway:rbac] ${removed.length} tools hidden:`);
+        removed.forEach((n) => console.log(`  [gateway:rbac]   ✘ ${n}`));
     }
 
     return body;
@@ -204,17 +222,23 @@ const server = createServer(async (req, res) => {
 
     // -- Authentication -------------------------------------------------------
 
+    console.log(`[gateway:req] ${req.method} ${req.url} — incoming request`);
+
     const authHeader = req.headers['authorization'] ?? '';
     const match = authHeader.match(/^Bearer\s+(\S+)$/i);
     if (!match) {
+        console.warn(`[gateway:auth] REJECTED — no Bearer token provided`);
         return sendError(res, 401, 'Unauthorized', 'Missing or malformed Bearer token');
     }
+
+    console.log(`[gateway:auth] Bearer token received (${match[1].length} chars), verifying...`);
 
     let payload;
     try {
         payload = await verifyToken(match[1]);
+        console.log(`[gateway:auth] Token verified — issuer=${payload.iss} aud=${payload.aud} scope="${payload.scope}"`);
     } catch (err) {
-        console.warn(`[gateway:auth] token rejected: ${err.message}`);
+        console.warn(`[gateway:auth] Token REJECTED — ${err.message}`);
         return sendError(res, 403, 'Forbidden', err.message);
     }
 
@@ -222,15 +246,24 @@ const server = createServer(async (req, res) => {
 
     const realmRoles = payload.realm_access?.roles ?? [];
     const user = payload.preferred_username ?? payload.sub ?? 'unknown';
+    const sub = payload.sub ?? 'unknown';
+
+    console.log(`[gateway:user] Authenticated: user="${user}" sub=${sub}`);
+    console.log(`[gateway:user] Realm roles: [${realmRoles.join(', ')}]`);
+
     const resolved = resolveRole(realmRoles);
 
     if (!resolved) {
-        console.warn(`[gateway:rbac] no matching role for user=${user} roles=[${realmRoles}]`);
+        console.warn(`[gateway:rbac] No matching MCP role for user="${user}" — access denied`);
         return sendError(res, 403, 'Forbidden', 'No MCP role assigned to this user');
     }
 
     const { role, allowedTools } = resolved;
-    console.log(`[gateway] ${req.method} ${req.url} — user=${user} role=${role}`);
+    const toolDisplay = allowedTools.includes('*')
+        ? 'ALL tools'
+        : allowedTools.join(', ');
+
+    console.log(`[gateway:rbac] Role resolved: "${role}" — enabled tools: [${toolDisplay}]`);
 
     // -- Read request body (for POST interception) ----------------------------
 
@@ -245,16 +278,20 @@ const server = createServer(async (req, res) => {
         }
     }
 
+    if (reqBody?.method) {
+        console.log(`[gateway:mcp] JSON-RPC method: "${reqBody.method}" id=${reqBody.id ?? 'n/a'}`);
+    }
+
     // -- MCP message interception: tools/call ---------------------------------
 
     if (reqBody?.method === 'tools/call') {
         const { allowed, toolName } = checkToolCallRequest(reqBody, allowedTools);
         if (!allowed) {
-            console.warn(`[gateway:rbac] DENIED tools/call "${toolName}" for user=${user} role=${role}`);
+            console.warn(`[gateway:rbac] DENIED tools/call "${toolName}" — user="${user}" role="${role}" does not include this tool`);
             res.writeHead(200, { 'content-type': 'application/json' });
             return res.end(buildAccessDeniedResponse(reqBody.id, toolName, role));
         }
-        console.log(`[gateway:rbac] ALLOWED tools/call "${toolName}" for user=${user} role=${role}`);
+        console.log(`[gateway:rbac] ALLOWED tools/call "${toolName}" — user="${user}" role="${role}"`);
     }
 
     // -- Proxy to upstream MCP Server -----------------------------------------
@@ -285,8 +322,9 @@ const server = createServer(async (req, res) => {
     const needsToolFiltering = reqBody?.method === 'tools/list' && !allowedTools.includes('*');
 
     if (needsToolFiltering) {
-        // Buffer the upstream response so we can modify it
+        console.log(`[gateway:proxy] Forwarding tools/list -> ${MCP_UPSTREAM_URL}${upstream.pathname} (will filter response)`);
         const proxyReq = httpRequest(proxyOpts, async (proxyRes) => {
+            console.log(`[gateway:proxy] Upstream responded: ${proxyRes.statusCode} — applying RBAC filter...`);
             const upstreamBody = await collectBody(proxyRes);
             const contentType = proxyRes.headers['content-type'] ?? '';
 
@@ -299,7 +337,7 @@ const server = createServer(async (req, res) => {
                         try {
                             const msg = JSON.parse(jsonStr);
                             if (msg?.result?.tools) {
-                                const modified = filterToolsListResponse(msg, allowedTools);
+                                const modified = filterToolsListResponse(msg, allowedTools, user, role);
                                 return `data: ${JSON.stringify(modified)}`;
                             }
                         } catch { /* not JSON, pass through */ }
@@ -315,7 +353,7 @@ const server = createServer(async (req, res) => {
                 // JSON response — filter directly
                 try {
                     const msg = JSON.parse(upstreamBody.toString());
-                    const modified = filterToolsListResponse(msg, allowedTools);
+                    const modified = filterToolsListResponse(msg, allowedTools, user, role);
                     const modifiedStr = JSON.stringify(modified);
                     const resFwdHeaders = { ...proxyRes.headers };
                     resFwdHeaders['content-length'] = String(Buffer.byteLength(modifiedStr));
@@ -343,7 +381,10 @@ const server = createServer(async (req, res) => {
 
     // -- Default: transparent proxy -------------------------------------------
 
+    console.log(`[gateway:proxy] Forwarding ${req.method} ${req.url} -> ${MCP_UPSTREAM_URL}${upstream.pathname}`);
+
     const proxyReq = httpRequest(proxyOpts, (proxyRes) => {
+        console.log(`[gateway:proxy] Upstream responded: ${proxyRes.statusCode} (${proxyRes.headers['content-type'] ?? 'no content-type'})`);
         res.writeHead(proxyRes.statusCode, proxyRes.headers);
         proxyRes.pipe(res);
     });

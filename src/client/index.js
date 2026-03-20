@@ -36,7 +36,7 @@ const useAuth = process.argv.includes('--auth');
 const DIRECT_URL = process.env.MCP_SERVER_URL
     ?? `http://${process.env.MDB_MCP_HTTP_HOST ?? '127.0.0.1'}:${process.env.MDB_MCP_HTTP_PORT ?? '8008'}`;
 
-const PROXY_URL = process.env.MCP_PROXY_URL ?? 'http://127.0.0.1:3030';
+const PROXY_URL = process.env.MCP_PROXY_URL ?? 'http://127.0.0.1:4040';
 
 const SERVER_URL = useAuth ? PROXY_URL : DIRECT_URL;
 

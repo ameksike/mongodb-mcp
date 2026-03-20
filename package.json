@@ -10,7 +10,7 @@
     "mcp:client:start": "node src/client/index.js",
     "mcp:client:auth": "node src/client/index.js --auth",
     "mcp:gateway:start": "node src/gateway/index.js",
-    "mcp:client:gateway": "MCP_PROXY_URL=http://127.0.0.1:4000 node src/client/index.js --auth",
+    "mcp:client:gateway": "node src/client/index.js --auth",
     "mcp:docker:start": "docker-compose up",
     "mcp:docker:stop": "docker-compose down"
   },
