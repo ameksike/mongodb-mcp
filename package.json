@@ -1,0 +1,23 @@
+{
+  "name": "mongodb-mcp",
+  "version": "1.0.0",
+  "description": "Repository for testing server customizations and integrations with MCP. Exploring features and configurations to optimize functionality",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "mcp:wrapper:start": "node src/wrapper/index.js",
+    "mcp:docker:start": "docker-compose up"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ameksike/mongodb-mcp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ameksike/mongodb-mcp/issues"
+  },
+  "homepage": "https://github.com/ameksike/mongodb-mcp#readme"
+}
