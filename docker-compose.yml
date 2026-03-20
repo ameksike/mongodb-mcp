@@ -27,29 +27,69 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Auth Proxy — OAuth 2.1 Resource Server (RS)
-  #   Validates Bearer tokens against Keycloak before forwarding to MCP Server.
-  #   This is the ONLY entry point exposed to clients.
+  # MongoDB MCP Server — upstream MCP service
+  #   Bound to 0.0.0.0 inside the container so the gateway can reach it.
+  #   Only exposed internally via the Docker network (no host port by default).
   # ---------------------------------------------------------------------------
-  auth-proxy:
-    build:
-      context: ./iac/auth-proxy
-      dockerfile: Dockerfile
-    container_name: auth-proxy
+  mongodb-mcp:
+    image: node:22-alpine
+    container_name: mongodb-mcp
+    working_dir: /app
+    command: ["node", "src/wrapper/index.js"]
+    env_file:
+      - .env
     environment:
-      PROXY_PORT: "3030"
+      MDB_MCP_TRANSPORT: ${MDB_MCP_TRANSPORT:-http}
+      MDB_MCP_HTTP_HOST: "0.0.0.0"
+      MDB_MCP_HTTP_PORT: ${MDB_MCP_HTTP_PORT:-8008}
+      MDB_MCP_HTTP_BODY_RESPONSE_TYPE: ${MDB_MCP_HTTP_BODY_RESPONSE_TYPE:-json}
+      MDB_MCP_READ_ONLY: ${MDB_MCP_READ_ONLY:-true}
+      MDB_MCP_DISABLED_TOOLS: ${MDB_MCP_DISABLED_TOOLS:-create,update,delete,atlas}
+      MDB_MCP_INDEX_CHECK: ${MDB_MCP_INDEX_CHECK:-false}
+      MDB_MCP_TELEMETRY: ${MDB_MCP_TELEMETRY:-enabled}
+    volumes:
+      - .:/app:ro
+      - ./node_modules:/app/node_modules:ro
+      - ./tmp/mcp/logs:/var/log/mongodb-mcp
+      - ./tmp/mcp/exports:/var/lib/mongodb-mcp/exports
+    expose:
+      - "${MDB_MCP_HTTP_PORT:-8008}"
+    ports:
+      - "${MDB_MCP_HTTP_PORT:-8008}:${MDB_MCP_HTTP_PORT:-8008}"
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # MCP RBAC Gateway — OAuth 2.1 Resource Server (RS)
+  #   Validates Bearer tokens against Keycloak, extracts realm roles, and
+  #   filters MCP tools per role before forwarding to the MCP Server.
+  #   This is the ONLY authenticated entry point exposed to clients.
+  # ---------------------------------------------------------------------------
+  mcp-gateway:
+    image: node:22-alpine
+    container_name: mcp-gateway
+    working_dir: /app
+    command: ["node", "src/gateway/index.js"]
+    env_file:
+      - .env
+    environment:
+      GATEWAY_PORT: "4040"
       MCP_UPSTREAM_URL: "http://mongodb-mcp:${MDB_MCP_HTTP_PORT:-8008}"
-      KEYCLOAK_ISSUER_URL: "http://keycloak:8080/realms/mcp"
-      KEYCLOAK_PUBLIC_URL: "http://localhost:8080/realms/mcp"
+      KEYCLOAK_URL: "http://keycloak:8080"
+      KEYCLOAK_REALM: "mcp"
       REQUIRED_AUDIENCE: "mcp-server"
       REQUIRED_SCOPE: "mcp:access"
+    volumes:
+      - .:/app:ro
+      - ./node_modules:/app/node_modules:ro
     ports:
-      - "3030:3030"
+      - "4040:4040"
     depends_on:
       keycloak:
         condition: service_healthy
+      mongodb-mcp:
+        condition: service_started
     restart: unless-stopped
-  
+
   # ---------------------------------------------------------------------------
   # MongoDB MCP Server — statically configured, bound to localhost inside
   #   its own network namespace (only the proxy can reach it)
