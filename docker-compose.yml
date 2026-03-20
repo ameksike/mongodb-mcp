@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  mongodb-mcp:
+    image: mongodb/mongodb-mcp-server:1.0.0  # pin a known-good version, avoid :latest for security/perf stability
+    container_name: mongodb-mcp
+    env_file:
+      - .env
+    environment:
+      # Safe defaults if not present in .env
+      MDB_MCP_TRANSPORT: ${MDB_MCP_TRANSPORT:-http}
+      MDB_MCP_HTTP_HOST: ${MDB_MCP_HTTP_HOST:-127.0.0.1}
+      MDB_MCP_HTTP_PORT: ${MDB_MCP_HTTP_PORT:-8000}
+      MDB_MCP_HTTP_BODY_RESPONSE_TYPE: ${MDB_MCP_HTTP_BODY_RESPONSE_TYPE:-json}
+      MDB_MCP_READ_ONLY: ${MDB_MCP_READ_ONLY:-true}
+      MDB_MCP_DISABLED_TOOLS: ${MDB_MCP_DISABLED_TOOLS:-create,update,delete,atlas}
+      MDB_MCP_INDEX_CHECK: ${MDB_MCP_INDEX_CHECK:-false}
+      MDB_MCP_TELEMETRY: ${MDB_MCP_TELEMETRY:-enabled}
+      MDB_MCP_LOGGERS: ${MDB_MCP_LOGGERS:-disk}
+      MDB_MCP_LOG_PATH: ${MDB_MCP_LOG_PATH:-/var/log/mongodb-mcp}
+      MDB_MCP_EXPORTS_PATH: ${MDB_MCP_EXPORTS_PATH:-/var/lib/mongodb-mcp/exports}
+
+    # Expose MCP HTTP port to Windows host
+    ports:
+      - "${MDB_MCP_HTTP_PORT:-8000}:${MDB_MCP_HTTP_PORT:-8000}"
+
+    # Persist logs/exports if you care about them
+    volumes:
+      - ./logs:${MDB_MCP_LOG_PATH:-/var/log/mongodb-mcp}
+      - ./exports:${MDB_MCP_EXPORTS_PATH:-/var/lib/mongodb-mcp/exports}
+
+    restart: unless-stopped
