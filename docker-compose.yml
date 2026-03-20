@@ -16,7 +16,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./iac/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
       - ./tmp/keycloak/data:/opt/keycloak/data
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080; echo -e 'GET /health/ready HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n' >&3; cat <&3 | grep -q '200 OK'"]
@@ -33,7 +33,7 @@ services:
   # ---------------------------------------------------------------------------
   auth-proxy:
     build:
-      context: ./infra/auth-proxy
+      context: ./iac/auth-proxy
       dockerfile: Dockerfile
     container_name: auth-proxy
     environment:
