@@ -4,7 +4,12 @@ Repository for testing server customizations and integrations with MCP. Explorin
 ## Getting Started
 ```sh
 netstat -ano | find ":8008"
+
+tasklist | find "node.exe"
+
+taskkill /IM node.exe /F
 ```
+
 
 ## References
 - [LM Studio: Using MCP via API](https://lmstudio.ai/docs/developer/core/mcp)
