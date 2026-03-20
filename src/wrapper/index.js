@@ -81,10 +81,9 @@ console.log(`
 ========================================
   MongoDB MCP Server
 ========================================
-  Status  : running
-  URL     : ${baseUrl}
-  SSE     : ${baseUrl}/sse
-  Messages: ${baseUrl}/messages
+  Status   : running
+  URL      : ${baseUrl}
+  Endpoint : ${baseUrl}/mcp
 ----------------------------------------
   LLM Integration (e.g. Claude, GPT):
 
@@ -93,8 +92,8 @@ console.log(`
   {
     "servers": {
       "mongodb": {
-        "type": "sse",
-        "url": "${baseUrl}/sse"
+        "type": "streamableHttp",
+        "url": "${baseUrl}/mcp"
       }
     }
   }

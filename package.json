@@ -7,6 +7,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "mcp:wrapper:start": "node src/wrapper/index.js",
+    "mcp:client:test": "node src/client/index.js",
     "mcp:docker:start": "docker-compose up"
   },
   "repository": {
