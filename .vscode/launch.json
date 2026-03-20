@@ -8,11 +8,20 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Program",
+            "name": "Wrapper",
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}\\src\\wrapper\\index.js"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Gateway",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}\\src\\gateway\\index.js"
         }
     ]
 }

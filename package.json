@@ -8,7 +8,11 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "mcp:wrapper:start": "node src/wrapper/index.js",
     "mcp:client:start": "node src/client/index.js",
-    "mcp:docker:start": "docker-compose up"
+    "mcp:client:auth": "node src/client/index.js --auth",
+    "mcp:gateway:start": "node src/gateway/index.js",
+    "mcp:client:gateway": "node src/client/index.js --auth",
+    "mcp:docker:start": "docker-compose up",
+    "mcp:docker:stop": "docker-compose down"
   },
   "repository": {
     "type": "git",
@@ -23,6 +27,7 @@
   "homepage": "https://github.com/ameksike/mongodb-mcp#readme",
   "dependencies": {
     "dotenv": "^17.3.1",
+    "jose": "^6.2.2",
     "mongodb-mcp-server": "^1.8.1"
   }
 }

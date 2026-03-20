@@ -1,32 +1,120 @@
-version: "3.8"
 
 services:
+
+  # ---------------------------------------------------------------------------
+  # Keycloak — OAuth 2.1 Authorization Server (AS)
+  # ---------------------------------------------------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2
+    container_name: keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8080
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./iac/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./tmp/keycloak/data:/opt/keycloak/data
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080; echo -e 'GET /health/ready HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n' >&3; cat <&3 | grep -q '200 OK'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # MongoDB MCP Server — upstream MCP service
+  #   Bound to 0.0.0.0 inside the container so the gateway can reach it.
+  #   Only exposed internally via the Docker network (no host port by default).
+  # ---------------------------------------------------------------------------
   mongodb-mcp:
-    image: mongodb/mongodb-mcp-server:latest
+    image: node:22-alpine
     container_name: mongodb-mcp
+    working_dir: /app
+    command: ["node", "src/wrapper/index.js"]
     env_file:
       - .env
     environment:
-      # Safe defaults if not present in .env
       MDB_MCP_TRANSPORT: ${MDB_MCP_TRANSPORT:-http}
-      MDB_MCP_HTTP_HOST: ${MDB_MCP_HTTP_HOST:-127.0.0.1}
+      MDB_MCP_HTTP_HOST: "0.0.0.0"
       MDB_MCP_HTTP_PORT: ${MDB_MCP_HTTP_PORT:-8008}
       MDB_MCP_HTTP_BODY_RESPONSE_TYPE: ${MDB_MCP_HTTP_BODY_RESPONSE_TYPE:-json}
       MDB_MCP_READ_ONLY: ${MDB_MCP_READ_ONLY:-true}
       MDB_MCP_DISABLED_TOOLS: ${MDB_MCP_DISABLED_TOOLS:-create,update,delete,atlas}
       MDB_MCP_INDEX_CHECK: ${MDB_MCP_INDEX_CHECK:-false}
       MDB_MCP_TELEMETRY: ${MDB_MCP_TELEMETRY:-enabled}
-      MDB_MCP_LOGGERS: ${MDB_MCP_LOGGERS:-disk}
-      MDB_MCP_LOG_PATH: ${MDB_MCP_LOG_PATH:-/var/log/mongodb-mcp}
-      MDB_MCP_EXPORTS_PATH: ${MDB_MCP_EXPORTS_PATH:-/var/lib/mongodb-mcp/exports}
-
-    # Expose MCP HTTP port to Windows host
+    volumes:
+      - .:/app:ro
+      - ./node_modules:/app/node_modules:ro
+      - ./tmp/mcp/logs:/var/log/mongodb-mcp
+      - ./tmp/mcp/exports:/var/lib/mongodb-mcp/exports
+    expose:
+      - "${MDB_MCP_HTTP_PORT:-8008}"
     ports:
       - "${MDB_MCP_HTTP_PORT:-8008}:${MDB_MCP_HTTP_PORT:-8008}"
-
-    # Persist logs/exports if you care about them
-    volumes:
-      - ./tmp/logs:${MDB_MCP_LOG_PATH:-/var/log/mongodb-mcp}
-      - ./tmp/exports:${MDB_MCP_EXPORTS_PATH:-/var/lib/mongodb-mcp/exports}
-
     restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # MCP RBAC Gateway — OAuth 2.1 Resource Server (RS)
+  #   Validates Bearer tokens against Keycloak, extracts realm roles, and
+  #   filters MCP tools per role before forwarding to the MCP Server.
+  #   This is the ONLY authenticated entry point exposed to clients.
+  # ---------------------------------------------------------------------------
+  mcp-gateway:
+    image: node:22-alpine
+    container_name: mcp-gateway
+    working_dir: /app
+    command: ["node", "src/gateway/index.js"]
+    env_file:
+      - .env
+    environment:
+      GATEWAY_PORT: "4040"
+      MCP_UPSTREAM_URL: "http://mongodb-mcp:${MDB_MCP_HTTP_PORT:-8008}"
+      KEYCLOAK_URL: "http://keycloak:8080"
+      KEYCLOAK_REALM: "mcp"
+      REQUIRED_AUDIENCE: "mcp-server"
+      REQUIRED_SCOPE: "mcp:access"
+    volumes:
+      - .:/app:ro
+      - ./node_modules:/app/node_modules:ro
+    ports:
+      - "4040:4040"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      mongodb-mcp:
+        condition: service_started
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # MongoDB MCP Server — statically configured, bound to localhost inside
+  #   its own network namespace (only the proxy can reach it)
+  # ---------------------------------------------------------------------------
+  # mongodb-mcp:
+  #   image: mongodb/mongodb-mcp-server:latest
+  #   container_name: mongodb-mcp
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     MDB_MCP_TRANSPORT: ${MDB_MCP_TRANSPORT:-http}
+  #     MDB_MCP_HTTP_HOST: "0.0.0.0"
+  #     MDB_MCP_HTTP_PORT: ${MDB_MCP_HTTP_PORT:-8008}
+  #     MDB_MCP_HTTP_BODY_RESPONSE_TYPE: ${MDB_MCP_HTTP_BODY_RESPONSE_TYPE:-json}
+  #     MDB_MCP_READ_ONLY: ${MDB_MCP_READ_ONLY:-true}
+  #     MDB_MCP_DISABLED_TOOLS: ${MDB_MCP_DISABLED_TOOLS:-create,update,delete,atlas}
+  #     MDB_MCP_INDEX_CHECK: ${MDB_MCP_INDEX_CHECK:-false}
+  #     MDB_MCP_TELEMETRY: ${MDB_MCP_TELEMETRY:-enabled}
+  #     MDB_MCP_LOGGERS: ${MDB_MCP_LOGGERS:-disk}
+  #     MDB_MCP_LOG_PATH: ${MDB_MCP_LOG_PATH:-/var/log/mongodb-mcp}
+  #     MDB_MCP_EXPORTS_PATH: ${MDB_MCP_EXPORTS_PATH:-/var/lib/mongodb-mcp/exports}
+  #   # No ports exposed to host — only reachable via the auth-proxy network
+  #   expose:
+  #     - "${MDB_MCP_HTTP_PORT:-8008}"
+  #   volumes:
+  #     - ./tmp/mcp/logs:${MDB_MCP_LOG_PATH:-/var/log/mongodb-mcp}
+  #     - ./tmp/mcp/exports:${MDB_MCP_EXPORTS_PATH:-/var/lib/mongodb-mcp/exports}
+  #   restart: unless-stopped
