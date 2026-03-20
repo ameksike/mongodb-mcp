@@ -1,0 +1,40 @@
+{
+  "roles": {
+    "mcp-admin": {
+      "description": "Full access to all MCP tools",
+      "tools": ["*"]
+    },
+    "mcp-analyst": {
+      "description": "Read, query, analysis, and export access",
+      "tools": [
+        "find",
+        "count",
+        "aggregate",
+        "explain",
+        "list-databases",
+        "list-collections",
+        "collection-schema",
+        "collection-indexes",
+        "collection-storage-size",
+        "db-stats",
+        "export",
+        "mongodb-logs",
+        "search-knowledge",
+        "list-knowledge-sources"
+      ]
+    },
+    "mcp-viewer": {
+      "description": "Basic read-only browsing",
+      "tools": [
+        "find",
+        "count",
+        "list-databases",
+        "list-collections",
+        "collection-schema",
+        "collection-indexes"
+      ]
+    }
+  },
+  "defaultRole": null,
+  "rolePrecedence": ["mcp-admin", "mcp-analyst", "mcp-viewer"]
+}

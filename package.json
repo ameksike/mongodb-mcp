@@ -9,6 +9,8 @@
     "mcp:wrapper:start": "node src/wrapper/index.js",
     "mcp:client:start": "node src/client/index.js",
     "mcp:client:auth": "node src/client/index.js --auth",
+    "mcp:gateway:start": "node src/gateway/index.js",
+    "mcp:client:gateway": "MCP_PROXY_URL=http://127.0.0.1:4000 node src/client/index.js --auth",
     "mcp:docker:start": "docker-compose up",
     "mcp:docker:stop": "docker-compose down"
   },
@@ -25,6 +27,7 @@
   "homepage": "https://github.com/ameksike/mongodb-mcp#readme",
   "dependencies": {
     "dotenv": "^17.3.1",
+    "jose": "^6.2.2",
     "mongodb-mcp-server": "^1.8.1"
   }
 }

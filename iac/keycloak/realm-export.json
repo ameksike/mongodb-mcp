@@ -9,6 +9,23 @@
   "editUsernameAllowed": false,
   "bruteForceProtected": true,
 
+  "roles": {
+    "realm": [
+      {
+        "name": "mcp-admin",
+        "description": "Full access to all MongoDB MCP tools"
+      },
+      {
+        "name": "mcp-analyst",
+        "description": "Read, query, analysis, and export access to MCP tools"
+      },
+      {
+        "name": "mcp-viewer",
+        "description": "Basic read-only browsing of MCP tools"
+      }
+    ]
+  },
+
   "clientScopes": [
     {
       "name": "mcp:access",
@@ -31,6 +48,20 @@
             "access.token.claim": "true",
             "introspection.token.claim": "true"
           }
+        },
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
         }
       ]
     }
@@ -47,7 +78,7 @@
       "serviceAccountsEnabled": false,
       "protocol": "openid-connect",
       "redirectUris": ["http://localhost:*", "http://127.0.0.1:*"],
-      "webOrigins": ["http://localhost:3000", "http://127.0.0.1:3000"],
+      "webOrigins": ["http://localhost:4000", "http://127.0.0.1:4000", "http://localhost:3030", "http://127.0.0.1:3030"],
       "defaultClientScopes": [
         "openid",
         "profile",
@@ -89,7 +120,55 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["default-roles-mcp"]
+      "realmRoles": ["default-roles-mcp", "mcp-admin"]
+    },
+    {
+      "username": "mcp-admin",
+      "email": "admin@example.com",
+      "firstName": "Admin",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-mcp", "mcp-admin"]
+    },
+    {
+      "username": "mcp-analyst",
+      "email": "analyst@example.com",
+      "firstName": "Analyst",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "analyst123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-mcp", "mcp-analyst"]
+    },
+    {
+      "username": "mcp-viewer",
+      "email": "viewer@example.com",
+      "firstName": "Viewer",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "viewer123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-mcp", "mcp-viewer"]
     }
   ]
 }
