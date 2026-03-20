@@ -1,5 +1,5 @@
 /**
- * @file start-mongodb-mcp.js
+ * @file src\wrapper\index.js
  * @description Optimized launcher for the MongoDB MCP Server.
  *              Spawns the local binary with scoped environment variables,
  *              avoiding global env pollution.
