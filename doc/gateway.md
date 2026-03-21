@@ -198,16 +198,24 @@ Expected output:
 
 ### Step 4 — Run the test client
 
+The test client accepts `--user` and `--pass` flags to override credentials.
+Pass them after `--` so npm forwards them to the script:
+
 ```bash
-# As admin (all 17 tools)
+# Uses .env defaults (MCP_AUTH_USERNAME / MCP_AUTH_PASSWORD)
 npm run mcp:client:gateway
 
+# As admin (all 17 tools)
+npm run mcp:client:gateway -- --user mcp-admin --pass admin123
+
 # As analyst (14 tools)
-MCP_AUTH_USERNAME=mcp-analyst MCP_AUTH_PASSWORD=analyst123 npm run mcp:client:gateway
+npm run mcp:client:gateway -- --user mcp-analyst --pass analyst123
 
 # As viewer (6 tools)
-MCP_AUTH_USERNAME=mcp-viewer MCP_AUTH_PASSWORD=viewer123 npm run mcp:client:gateway
+npm run mcp:client:gateway -- --user mcp-viewer --pass viewer123
 ```
+
+> **Priority:** `--user`/`--pass` flags > environment variables > defaults.
 
 ### Step 5 — Stop everything
 

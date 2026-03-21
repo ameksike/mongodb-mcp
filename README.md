@@ -195,8 +195,11 @@ and supports both direct and authenticated modes:
 # 🟢 Direct — no authentication
 npm run mcp:client:start
 
-# 🔴 Via Gateway — with Keycloak token
+# 🔴 Via Gateway — with Keycloak token (uses .env defaults)
 npm run mcp:client:gateway
+
+# 🔴 Via Gateway — override user from the command line
+npm run mcp:client:gateway -- --user mcp-admin --pass admin123
 ```
 
 The client runs a diagnostic suite: initialize, ping, list tools, call a
