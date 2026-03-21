@@ -144,9 +144,9 @@ export class ProxyHandler {
      * @param {string} error    Error label
      * @param {string} [detail] Additional detail
      */
-    static sendError(res, status, error, detail) {
+    static sendError(res, status, error, detail, extraHeaders = {}) {
         if (res.headersSent) return;
-        res.writeHead(status, { 'content-type': 'application/json' });
+        res.writeHead(status, { 'content-type': 'application/json', ...extraHeaders });
         res.end(JSON.stringify({ error, ...(detail && { detail }) }));
     }
 }

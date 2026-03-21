@@ -163,6 +163,10 @@ npm run mcp:wrapper:start
 
 ```bash
 npm run mcp:docker:start
+
+docker compose up keycloak
+docker ps
+docker logs keycloak
 ```
 
 Wait until Keycloak is healthy (~30–60 seconds on first run). You can verify:
@@ -527,6 +531,48 @@ curl -s -X POST http://localhost:4040/mcp \
   }
 }
 ```
+
+---
+
+## VS Code Copilot Integration
+
+The `.vscode/mcp.json` file defines a `mongodb-gateway` server that connects
+through the RBAC Gateway. VS Code will prompt you to paste a Bearer token
+when connecting.
+
+### How to connect
+
+1. Make sure Keycloak, the MCP Server, and the Gateway are all running
+2. Obtain a token for the desired user:
+
+```bash
+curl -s -X POST http://localhost:8080/realms/mcp/protocol/openid-connect/token \
+  -d "grant_type=password" \
+  -d "client_id=mcp-client" \
+  -d "username=mcp-admin" \
+  -d "password=admin123" \
+  -d "scope=openid mcp:access" | node -e "
+    let d=''; process.stdin.on('data',c=>d+=c);
+    process.stdin.on('end',()=>console.log(JSON.parse(d).access_token));
+  "
+```
+
+3. In VS Code, open the MCP panel and connect to `mongodb-gateway`
+4. Paste the token when prompted
+
+> **Note:** VS Code may show warnings about failing to discover OAuth metadata.
+> This is expected — the gateway is not an OAuth server. VS Code will fall
+> back to using the manual token from `.vscode/mcp.json`.
+
+### Available users for testing
+
+| Username       | Password     | Role           | Tools |
+|----------------|--------------|----------------|:-----:|
+| `mcp-admin`    | `admin123`   | `mcp-admin`    |  17   |
+| `mcp-analyst`  | `analyst123` | `mcp-analyst`  |  14   |
+| `mcp-viewer`   | `viewer123`  | `mcp-viewer`   |   6   |
+
+> Tokens expire after 5 minutes. Obtain a new one if VS Code returns 403.
 
 ---
 

@@ -1,8 +1,12 @@
 {
     "servers": {
-        "mongodb": {
+        "mongodb-wrapper": {
             "type": "http",
             "url": "http://127.0.0.1:8008/mcp"
+        },
+        "mongodb-gateway": {
+            "type": "http",
+            "url": "http://127.0.0.1:4040/mcp"
         }
     }
 }

@@ -49,11 +49,19 @@ export class GatewayServer {
      */
     constructor(config, deps = {}) {
         this.port = config.port;
+        this.gatewayUrl = config.gatewayUrl ?? `http://127.0.0.1:${config.port}`;
 
         this.tokenVerifier = deps.tokenVerifier ?? new TokenVerifier(config.tokenVerifier);
         this.roleResolver = deps.roleResolver ?? new RoleResolver(config.roleResolver);
         this.interceptor = deps.interceptor ?? new McpInterceptor({ roleResolver: this.roleResolver });
         this.proxy = deps.proxy ?? new ProxyHandler(config.proxy);
+
+        this.resourceMetadata = {
+            resource: this.gatewayUrl,
+            authorization_servers: [this.tokenVerifier.issuer],
+            scopes_supported: ['openid', this.tokenVerifier.requiredScope],
+            bearer_methods_supported: ['header'],
+        };
 
         this.server = createServer((req, res) => this._handleRequest(req, res));
     }
@@ -81,6 +89,14 @@ export class GatewayServer {
             res.setHeader(k, v);
         }
 
+        // -- OAuth Protected Resource Metadata (RFC 9728) ---------------------
+
+        if (req.url === '/.well-known/oauth-protected-resource') {
+            console.log(`[gateway:meta] Serving OAuth Protected Resource Metadata`);
+            res.writeHead(200, { 'content-type': 'application/json' });
+            return res.end(JSON.stringify(this.resourceMetadata));
+        }
+
         // -- Authentication ---------------------------------------------------
 
         console.log(`[gateway:req] ${req.method} ${req.url} — incoming request`);
@@ -88,7 +104,10 @@ export class GatewayServer {
         const token = TokenVerifier.extractBearer(req.headers['authorization']);
         if (!token) {
             console.warn(`[gateway:auth] REJECTED — no Bearer token provided`);
-            return ProxyHandler.sendError(res, 401, 'Unauthorized', 'Missing or malformed Bearer token');
+            const metaUrl = `${this.gatewayUrl}/.well-known/oauth-protected-resource`;
+            return ProxyHandler.sendError(res, 401, 'Unauthorized', 'Missing or malformed Bearer token', {
+                'www-authenticate': `Bearer resource_metadata="${metaUrl}"`,
+            });
         }
 
         console.log(`[gateway:auth] Bearer token received (${token.length} chars), verifying...`);

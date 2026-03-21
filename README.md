@@ -216,8 +216,23 @@ The `.vscode/mcp.json` file provides two server entries:
 | `mongodb`          | `http://127.0.0.1:8008/mcp`     | None   |
 | `mongodb-gateway`  | `http://127.0.0.1:4040/mcp`     | Bearer |
 
-For `mongodb-gateway`, VS Code will prompt for a Keycloak token on connect.
-See [doc/gateway.md](doc/gateway.md) for how to obtain one.
+For `mongodb-gateway`, VS Code will prompt you to paste a Keycloak access token.
+Obtain one first (replace user/password as needed):
+
+```bash
+curl -s -X POST http://localhost:8080/realms/mcp/protocol/openid-connect/token \
+  -d "grant_type=password" \
+  -d "client_id=mcp-client" \
+  -d "username=mcp-admin" \
+  -d "password=admin123" \
+  -d "scope=openid mcp:access" | node -e "
+    let d=''; process.stdin.on('data',c=>d+=c);
+    process.stdin.on('end',()=>console.log(JSON.parse(d).access_token));
+  "
+```
+
+Copy the token and paste it when VS Code prompts.
+See [doc/gateway.md](doc/gateway.md) for more details and all available users.
 
 ---
 

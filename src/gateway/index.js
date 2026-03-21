@@ -10,8 +10,10 @@ import 'dotenv/config';
 import { resolve } from 'node:path';
 import { GatewayServer } from './GatewayServer.js';
 
+const port = Number(process.env.GATEWAY_PORT ?? '4040');
 const gateway = new GatewayServer({
-    port: Number(process.env.GATEWAY_PORT ?? '4040'),
+    port,
+    gatewayUrl: process.env.GATEWAY_URL ?? `http://127.0.0.1:${port}`,
     tokenVerifier: {
         keycloakUrl: process.env.KEYCLOAK_URL ?? 'http://localhost:8080',
         realm: process.env.KEYCLOAK_REALM ?? 'mcp',
