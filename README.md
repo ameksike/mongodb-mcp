@@ -162,20 +162,25 @@ list resources, read resource, shutdown).
 ```
 mongodb-mcp/
 ├── src/
-│   ├── wrapper/index.js       # 🟢 MCP Server launcher
-│   ├── gateway/               # 🔴 RBAC Gateway
-│   │   ├── index.js           #    Gateway server
-│   │   ├── roles.json         #    Role-to-tools mapping
-│   │   └── context.md         #    Design document
-│   └── client/index.js        # 🧪 MCP test client (direct & auth modes)
+│   ├── wrapper/index.js         # 🟢 MCP Server launcher
+│   ├── gateway/                 # 🔴 RBAC Gateway (OOP, SOLID/GRASP)
+│   │   ├── index.js             #    Entry point — config + startup
+│   │   ├── GatewayServer.js     #    Controller — HTTP server orchestration
+│   │   ├── TokenVerifier.js     #    JWT/JWKS token verification
+│   │   ├── RoleResolver.js      #    Role resolution + tool permissions
+│   │   ├── McpInterceptor.js    #    MCP message filtering/blocking
+│   │   ├── ProxyHandler.js      #    HTTP reverse proxy to upstream
+│   │   ├── roles.json           #    Role-to-tools mapping config
+│   │   └── context.md           #    Design document
+│   └── client/index.js          # 🧪 MCP test client (direct & auth modes)
 ├── iac/
 │   ├── keycloak/
-│   │   └── realm-export.json  # 🔐 Keycloak realm (roles, users, scopes)
+│   │   └── realm-export.json    # 🔐 Keycloak realm (roles, users, scopes)
 ├── doc/
-│   └── gateway.md             # 📖 Full RBAC gateway guide
-├── docker-compose.yml         # 🐳 Keycloak + MCP Server + Gateway
-├── .env                       # ⚙️  Environment configuration
-└── .vscode/mcp.json           # 🆚 VS Code Copilot MCP config
+│   └── gateway.md               # 📖 Full RBAC gateway guide
+├── docker-compose.yml           # 🐳 Keycloak + MCP Server + Gateway
+├── .env                         # ⚙️  Environment configuration
+└── .vscode/mcp.json             # 🆚 VS Code Copilot MCP config
 ```
 
 ---

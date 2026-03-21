@@ -77,6 +77,23 @@ and the [MCP Authorization specification](https://modelcontextprotocol.io/docs/t
 The mapping is defined in `src/gateway/roles.json` and can be edited without
 code changes. Restart the gateway after modifying.
 
+## Gateway Code Structure
+
+The gateway follows OOP principles (SOLID, SoC, GRASP) with clear separation
+of responsibilities:
+
+| File                | Responsibility                                    |
+|---------------------|---------------------------------------------------|
+| `index.js`          | Entry point — loads config and starts the server   |
+| `GatewayServer.js`  | Controller — HTTP server, request orchestration    |
+| `TokenVerifier.js`  | JWT/JWKS verification and scope validation         |
+| `RoleResolver.js`   | Role resolution from JWT claims, tool permissions  |
+| `McpInterceptor.js` | MCP JSON-RPC filtering (`tools/list`, `tools/call`)|
+| `ProxyHandler.js`   | HTTP reverse proxy to the upstream MCP Server      |
+
+For detailed design decisions and class interaction diagrams, see
+[`src/gateway/context.md`](../src/gateway/context.md).
+
 ## Predefined Keycloak Users
 
 The following users are pre-configured in the Keycloak realm import file
