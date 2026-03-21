@@ -1,42 +1,58 @@
 /**
  * @file RoleResolver — RBAC role resolution and tool permission checking.
  * @description Information Expert for role-based access control. Loads the
- *              role configuration, resolves effective roles from JWT claims,
- *              and determines tool-level permissions.
+ *              role configuration asynchronously on demand, resolves effective
+ *              roles from JWT claims, and determines tool-level permissions.
+ *
+ *              Construction is synchronous and lightweight — no I/O occurs
+ *              until load() is called. Once loaded, the configuration is
+ *              cached in memory. This lazy-load pattern makes it trivial to
+ *              swap the data source (file, database, API) by extending this
+ *              class and overriding load().
  */
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 
 export class RoleResolver {
     /**
-     * @param {string} configDir  Directory containing roles.json
+     * @param {string} source  Path to the roles JSON file (or any source identifier)
      */
-    constructor(configDir) {
-        const raw = readFileSync(join(configDir, 'roles.json'), 'utf-8');
-        this.config = JSON.parse(raw);
+    constructor(source) {
+        this.source = source;
+        this._config = null;
+    }
+
+    /**
+     * Load role configuration into memory. No-op if already loaded.
+     * Override this method to load from a different data source.
+     * @returns {Promise<void>}
+     */
+    async load() {
+        if (this._config) return;
+        const raw = await readFile(this.source, 'utf-8');
+        this._config = JSON.parse(raw);
     }
 
     /**
      * Resolve the effective role for a user based on Keycloak realm roles.
-     * Uses precedence order defined in roles.json.
+     * Uses precedence order defined in the configuration.
      * @param {string[]} realmRoles  Array of realm role names from the JWT
      * @returns {{ role: string, allowedTools: string[] } | null}
      */
     resolve(realmRoles) {
-        for (const roleName of this.config.rolePrecedence) {
+        for (const roleName of this._config.rolePrecedence) {
             if (realmRoles.includes(roleName)) {
                 return {
                     role: roleName,
-                    allowedTools: this.config.roles[roleName].tools,
+                    allowedTools: this._config.roles[roleName].tools,
                 };
             }
         }
 
-        if (this.config.defaultRole && this.config.roles[this.config.defaultRole]) {
+        if (this._config.defaultRole && this._config.roles[this._config.defaultRole]) {
             return {
-                role: this.config.defaultRole,
-                allowedTools: this.config.roles[this.config.defaultRole].tools,
+                role: this._config.defaultRole,
+                allowedTools: this._config.roles[this._config.defaultRole].tools,
             };
         }
 
@@ -55,6 +71,6 @@ export class RoleResolver {
 
     /** @returns {object} Raw roles configuration for display purposes */
     get roles() {
-        return this.config.roles;
+        return this._config.roles;
     }
 }

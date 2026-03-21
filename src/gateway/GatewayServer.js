@@ -7,6 +7,10 @@
  *
  *              Follows the Controller pattern (GRASP) — delegates domain
  *              logic to specialist classes while coordinating the flow.
+ *
+ *              Supports Dependency Injection: pass pre-built instances via
+ *              the `deps` parameter to override any component. When omitted,
+ *              default instances are created from `config`.
  */
 
 import { createServer } from 'node:http';
@@ -25,37 +29,44 @@ const CORS_HEADERS = {
 
 export class GatewayServer {
     /**
-     * @param {object} config
+     * @param {object}  config
      * @param {number}  config.port          Gateway listen port
      * @param {string}  config.upstreamUrl   MCP Server base URL
      * @param {string}  config.keycloakUrl   Keycloak base URL
      * @param {string}  config.realm         Keycloak realm name
      * @param {string}  config.audience      Required JWT audience
      * @param {string}  config.scope         Required JWT scope
-     * @param {string}  config.configDir     Directory containing roles.json
+     * @param {string}  config.rolesPath     Absolute path to the roles JSON file
+     *
+     * @param {object}  [deps]                         Optional pre-built dependencies
+     * @param {TokenVerifier}  [deps.tokenVerifier]    Custom token verifier
+     * @param {RoleResolver}   [deps.roleResolver]     Custom role resolver
+     * @param {McpInterceptor} [deps.interceptor]      Custom MCP interceptor
+     * @param {ProxyHandler}   [deps.proxy]            Custom proxy handler
      */
-    constructor(config) {
+    constructor(config, deps = {}) {
         this.port = config.port;
+        this.config = config;
 
-        this.tokenVerifier = new TokenVerifier({
+        this.tokenVerifier = deps.tokenVerifier ?? new TokenVerifier({
             keycloakUrl: config.keycloakUrl,
             realm: config.realm,
             audience: config.audience,
             scope: config.scope,
         });
 
-        this.roleResolver = new RoleResolver(config.configDir);
-        this.interceptor = new McpInterceptor(this.roleResolver);
-        this.proxy = new ProxyHandler(config.upstreamUrl);
+        this.roleResolver = deps.roleResolver ?? new RoleResolver(config.rolesPath);
+        this.interceptor = deps.interceptor ?? new McpInterceptor(this.roleResolver);
+        this.proxy = deps.proxy ?? new ProxyHandler(config.upstreamUrl);
 
-        this.config = config;
         this.server = createServer((req, res) => this._handleRequest(req, res));
     }
 
     /**
-     * Start listening on the configured port.
+     * Load async dependencies and start listening.
      */
-    start() {
+    async start() {
+        await this.roleResolver.load();
         this.server.listen(this.port, '0.0.0.0', () => this._printBanner());
     }
 

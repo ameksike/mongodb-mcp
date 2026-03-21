@@ -170,9 +170,10 @@ mongodb-mcp/
 │   │   ├── RoleResolver.js      #    Role resolution + tool permissions
 │   │   ├── McpInterceptor.js    #    MCP message filtering/blocking
 │   │   ├── ProxyHandler.js      #    HTTP reverse proxy to upstream
-│   │   ├── roles.json           #    Role-to-tools mapping config
 │   │   └── context.md           #    Design document
 │   └── client/index.js          # 🧪 MCP test client (direct & auth modes)
+├── cfg/
+│   └── roles.json               # 🔧 Role-to-tools mapping config
 ├── iac/
 │   ├── keycloak/
 │   │   └── realm-export.json    # 🔐 Keycloak realm (roles, users, scopes)

@@ -7,11 +7,8 @@
  */
 
 import 'dotenv/config';
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { GatewayServer } from './GatewayServer.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const gateway = new GatewayServer({
     port: Number(process.env.GATEWAY_PORT ?? '4040'),
@@ -21,7 +18,7 @@ const gateway = new GatewayServer({
     realm: process.env.KEYCLOAK_REALM ?? 'mcp',
     audience: process.env.REQUIRED_AUDIENCE ?? 'mcp-server',
     scope: process.env.REQUIRED_SCOPE ?? 'mcp:access',
-    configDir: __dirname,
+    rolesPath: resolve('cfg/roles.json'),
 });
 
-gateway.start();
+await gateway.start();

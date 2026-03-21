@@ -74,7 +74,7 @@ and the [MCP Authorization specification](https://modelcontextprotocol.io/docs/t
 | `atlas-local-connect-deployment` |   x   |         |        |
 | `atlas-local-list-deployments`   |   x   |         |        |
 
-The mapping is defined in `src/gateway/roles.json` and can be edited without
+The mapping is defined in `cfg/roles.json` and can be edited without
 code changes. Restart the gateway after modifying.
 
 ## Gateway Code Structure
@@ -524,7 +524,7 @@ curl -s -X POST http://localhost:4040/mcp \
 
 ## Customizing Roles
 
-Edit `src/gateway/roles.json`:
+Edit `cfg/roles.json`:
 
 ```json
 {
@@ -569,7 +569,7 @@ Keycloak start.
 
 ### Gateway returns `-32001 Access denied` on tool call
 - The tool is not in the allowed list for the user's role
-- Check `src/gateway/roles.json` for the role's tool list
+- Check `cfg/roles.json` for the role's tool list
 - Upgrade the user's role or add the tool to the role config
 
 ### `502 Bad Gateway`
