@@ -9,9 +9,10 @@ import { request as httpRequest } from 'node:http';
 
 export class ProxyHandler {
     /**
-     * @param {string} upstreamUrl  Base URL of the upstream MCP Server
+     * @param {object} opts
+     * @param {string} opts.upstreamUrl  Base URL of the upstream MCP Server
      */
-    constructor(upstreamUrl) {
+    constructor({ upstreamUrl }) {
         this.upstreamUrl = upstreamUrl;
     }
 

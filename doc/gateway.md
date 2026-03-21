@@ -91,8 +91,8 @@ of responsibilities:
 | `McpInterceptor.js` | MCP JSON-RPC filtering (`tools/list`, `tools/call`)|
 | `ProxyHandler.js`   | HTTP reverse proxy to the upstream MCP Server      |
 
-For detailed design decisions and class interaction diagrams, see
-[`src/gateway/context.md`](../src/gateway/context.md).
+For detailed design decisions and class interaction diagrams, see the
+internal design document in `src/gateway/`.
 
 ## Predefined Keycloak Users
 

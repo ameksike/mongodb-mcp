@@ -15,9 +15,10 @@ import { readFile } from 'node:fs/promises';
 
 export class RoleResolver {
     /**
-     * @param {string} source  Path to the roles JSON file (or any source identifier)
+     * @param {object} opts
+     * @param {string} opts.source  Path to the roles JSON file (or any source identifier)
      */
-    constructor(source) {
+    constructor({ source }) {
         this.source = source;
         this._config = null;
     }

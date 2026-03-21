@@ -10,7 +10,7 @@
  *
  *              Supports Dependency Injection: pass pre-built instances via
  *              the `deps` parameter to override any component. When omitted,
- *              default instances are created from `config`.
+ *              default instances are created from the grouped `config`.
  */
 
 import { createServer } from 'node:http';
@@ -30,13 +30,16 @@ const CORS_HEADERS = {
 export class GatewayServer {
     /**
      * @param {object}  config
-     * @param {number}  config.port          Gateway listen port
-     * @param {string}  config.upstreamUrl   MCP Server base URL
-     * @param {string}  config.keycloakUrl   Keycloak base URL
-     * @param {string}  config.realm         Keycloak realm name
-     * @param {string}  config.audience      Required JWT audience
-     * @param {string}  config.scope         Required JWT scope
-     * @param {string}  config.rolesPath     Absolute path to the roles JSON file
+     * @param {number}  config.port                       Gateway listen port
+     * @param {object}  config.tokenVerifier              TokenVerifier config
+     * @param {string}  config.tokenVerifier.keycloakUrl  Keycloak base URL
+     * @param {string}  config.tokenVerifier.realm        Keycloak realm name
+     * @param {string}  config.tokenVerifier.audience     Required JWT audience
+     * @param {string}  config.tokenVerifier.scope        Required JWT scope
+     * @param {object}  config.roleResolver               RoleResolver config
+     * @param {string}  config.roleResolver.source        Path to roles JSON file
+     * @param {object}  config.proxy                      ProxyHandler config
+     * @param {string}  config.proxy.upstreamUrl          MCP Server base URL
      *
      * @param {object}  [deps]                         Optional pre-built dependencies
      * @param {TokenVerifier}  [deps.tokenVerifier]    Custom token verifier
@@ -46,18 +49,11 @@ export class GatewayServer {
      */
     constructor(config, deps = {}) {
         this.port = config.port;
-        this.config = config;
 
-        this.tokenVerifier = deps.tokenVerifier ?? new TokenVerifier({
-            keycloakUrl: config.keycloakUrl,
-            realm: config.realm,
-            audience: config.audience,
-            scope: config.scope,
-        });
-
-        this.roleResolver = deps.roleResolver ?? new RoleResolver(config.rolesPath);
-        this.interceptor = deps.interceptor ?? new McpInterceptor(this.roleResolver);
-        this.proxy = deps.proxy ?? new ProxyHandler(config.upstreamUrl);
+        this.tokenVerifier = deps.tokenVerifier ?? new TokenVerifier(config.tokenVerifier);
+        this.roleResolver = deps.roleResolver ?? new RoleResolver(config.roleResolver);
+        this.interceptor = deps.interceptor ?? new McpInterceptor({ roleResolver: this.roleResolver });
+        this.proxy = deps.proxy ?? new ProxyHandler(config.proxy);
 
         this.server = createServer((req, res) => this._handleRequest(req, res));
     }
@@ -233,10 +229,10 @@ export class GatewayServer {
   MCP RBAC Gateway
 ========================================
   Listening : http://0.0.0.0:${this.port}
-  Upstream  : ${this.config.upstreamUrl}
+  Upstream  : ${this.proxy.upstreamUrl}
   Keycloak  : ${this.tokenVerifier.issuer}
-  Audience  : ${this.config.audience}
-  Scope     : ${this.config.scope}
+  Audience  : ${this.tokenVerifier.audience}
+  Scope     : ${this.tokenVerifier.requiredScope}
 ----------------------------------------
   Role permissions:
 ${toolSummary}

@@ -7,9 +7,10 @@
 
 export class McpInterceptor {
     /**
-     * @param {import('./RoleResolver.js').RoleResolver} roleResolver
+     * @param {object} opts
+     * @param {import('./RoleResolver.js').RoleResolver} opts.roleResolver  Role resolver instance
      */
-    constructor(roleResolver) {
+    constructor({ roleResolver }) {
         this.roleResolver = roleResolver;
     }
 

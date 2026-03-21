@@ -169,8 +169,7 @@ mongodb-mcp/
 │   │   ├── TokenVerifier.js     #    JWT/JWKS token verification
 │   │   ├── RoleResolver.js      #    Role resolution + tool permissions
 │   │   ├── McpInterceptor.js    #    MCP message filtering/blocking
-│   │   ├── ProxyHandler.js      #    HTTP reverse proxy to upstream
-│   │   └── context.md           #    Design document
+│   │   └── ProxyHandler.js      #    HTTP reverse proxy to upstream
 │   └── client/index.js          # 🧪 MCP test client (direct & auth modes)
 ├── cfg/
 │   └── roles.json               # 🔧 Role-to-tools mapping config
@@ -248,7 +247,6 @@ npm run mcp:docker:stop
 | Document                              | Description                                          |
 |---------------------------------------|------------------------------------------------------|
 | [**doc/gateway.md**](doc/gateway.md)  | 🔴 RBAC Gateway — full guide with Keycloak examples  |
-| [**src/gateway/context.md**](src/gateway/context.md) | 🏗️ Gateway design decisions and architecture |
 
 ---
 
