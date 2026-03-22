@@ -77,10 +77,13 @@ child.stderr.on('data', (data) => {
     process.stderr.write(`[mcp:err] ${data}`);
 });
 
+const now = new Date().toLocaleString();
+
 console.log(`
 ========================================
   MongoDB MCP Server
 ========================================
+  Started  : ${now}
   Status   : running
   URL      : ${baseUrl}
   Endpoint : ${baseUrl}/mcp

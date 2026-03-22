@@ -243,10 +243,13 @@ export class GatewayServer {
             .map(([r, def]) => `    ${r.padEnd(14)} ${def.tools.includes('*') ? 'ALL tools' : `${def.tools.length} tools`}`)
             .join('\n');
 
+        const now = new Date().toLocaleString();
+
         console.log(`
 ========================================
   MCP RBAC Gateway
 ========================================
+  Started   : ${now}
   Listening : http://0.0.0.0:${this.port}
   Upstream  : ${this.proxy.upstreamUrl}
   Keycloak  : ${this.tokenVerifier.issuer}
