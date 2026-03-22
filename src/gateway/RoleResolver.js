@@ -42,21 +42,19 @@ export class RoleResolver {
      */
     resolve(realmRoles) {
         for (const roleName of this._config.rolePrecedence) {
-            if (realmRoles.includes(roleName)) {
+            if (this._config.roles[roleName] && realmRoles.includes(roleName)) {
                 return {
                     role: roleName,
                     tools: this._config.roles[roleName].tools,
                 };
             }
         }
-
         if (this._config.defaultRole && this._config.roles[this._config.defaultRole]) {
             return {
                 role: this._config.defaultRole,
                 tools: this._config.roles[this._config.defaultRole].tools,
             };
         }
-
         return null;
     }
 

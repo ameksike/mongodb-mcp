@@ -19,7 +19,7 @@ export class ProxyHandler {
     /**
      * Build proxy-safe forwarding headers.
      * Strips auth and host, injects authenticated user metadata
-     * and per-role MCP overrides (readOnly, disabledTools).
+     * and per-role MCP overrides via x-mongodb-mcp-* headers.
      * @param {object}   options
      * @param {object}   options.originalHeaders  Incoming request headers
      * @param {object}   options.authContext       { sub, username, role }
@@ -38,9 +38,9 @@ export class ProxyHandler {
         headers['x-authenticated-username'] = authContext.username;
         headers['x-authenticated-role'] = authContext.role;
 
-        readOnly && (headers['x-mcp-read-only'] = String(readOnly));
-        if (!useAllow) {
-            headers['x-mcp-disabled-tools'] = deny.join(',');
+        readOnly && (headers['x-mongodb-mcp-read-only'] = String(readOnly));
+        if (!useAllow && deny.length) {
+            headers['x-mongodb-mcp-disabled-tools'] = deny.join(',');
         }
 
         if (bodyBuffer) {
