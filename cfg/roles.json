@@ -2,36 +2,58 @@
   "roles": {
     "mcp-admin": {
       "description": "Full access to all MCP tools",
-      "tools": ["*"]
+      "tools": {
+        "allow": ["*"],
+        "readOnly": false
+      }
+    },
+    "mcp-analyst2": {
+      "description": "Read, query, analysis, and export access",
+      "tools": {
+        "allow": [
+          "find",
+          "count",
+          "aggregate",
+          "explain",
+          "list-databases",
+          "list-collections",
+          "collection-schema",
+          "collection-indexes",
+          "collection-storage-size",
+          "db-stats",
+          "export",
+          "mongodb-logs",
+          "search-knowledge",
+          "list-knowledge-sources"
+        ],
+        "readOnly": true
+      }
     },
     "mcp-analyst": {
       "description": "Read, query, analysis, and export access",
-      "tools": [
-        "find",
-        "count",
-        "aggregate",
-        "explain",
-        "list-databases",
-        "list-collections",
-        "collection-schema",
-        "collection-indexes",
-        "collection-storage-size",
-        "db-stats",
-        "export",
-        "mongodb-logs",
-        "search-knowledge",
-        "list-knowledge-sources"
-      ]
+      "tools": {
+        "deny": ["mongodb"],
+        "readOnly": true
+      }
     },
     "mcp-viewer": {
       "description": "Basic read-only browsing",
-      "tools": [
-        "find",
-        "count",
-        "list-collections",
-        "collection-schema",
-        "collection-indexes"
-      ]
+      "tools": {
+        "allow": [
+          "find",
+          "count",
+          "list-collections",
+          "collection-schema",
+          "collection-indexes"
+        ]
+      }
+    },
+    "mcp-guest": {
+      "description": "Basic read-only browsing",
+      "tools": {
+        "deny": ["atlas"],
+        "readOnly": true
+      }
     }
   },
   "defaultRole": null,

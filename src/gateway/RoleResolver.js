@@ -38,14 +38,14 @@ export class RoleResolver {
      * Resolve the effective role for a user based on Keycloak realm roles.
      * Uses precedence order defined in the configuration.
      * @param {string[]} realmRoles  Array of realm role names from the JWT
-     * @returns {{ role: string, allowedTools: string[] } | null}
+     * @returns {{ role: string, tools: { allow?: string[], deny?: string[], readOnly: boolean } } | null}
      */
     resolve(realmRoles) {
         for (const roleName of this._config.rolePrecedence) {
             if (realmRoles.includes(roleName)) {
                 return {
                     role: roleName,
-                    allowedTools: this._config.roles[roleName].tools,
+                    tools: this._config.roles[roleName].tools,
                 };
             }
         }
@@ -53,7 +53,7 @@ export class RoleResolver {
         if (this._config.defaultRole && this._config.roles[this._config.defaultRole]) {
             return {
                 role: this._config.defaultRole,
-                allowedTools: this._config.roles[this._config.defaultRole].tools,
+                tools: this._config.roles[this._config.defaultRole].tools,
             };
         }
 
@@ -61,13 +61,13 @@ export class RoleResolver {
     }
 
     /**
-     * Check if a specific tool is allowed for the given tool list.
-     * @param {string}   toolName      Tool name to check
-     * @param {string[]} allowedTools  Array of allowed tool names (or ["*"])
+     * Check if a specific tool is allowed for the given allow list.
+     * @param {string}   toolName  Tool name to check
+     * @param {string[]} allow     Array of allowed tool names (or ["*"])
      * @returns {boolean}
      */
-    isToolAllowed(toolName, allowedTools) {
-        return allowedTools.includes('*') || allowedTools.includes(toolName);
+    isToolAllowed(toolName, allow) {
+        return allow.includes('*') || allow.includes(toolName);
     }
 
     /** @returns {object} Raw roles configuration for display purposes */

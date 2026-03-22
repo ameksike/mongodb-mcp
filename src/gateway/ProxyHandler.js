@@ -18,19 +18,30 @@ export class ProxyHandler {
 
     /**
      * Build proxy-safe forwarding headers.
-     * Strips auth and host, injects authenticated user metadata.
-     * @param {object} originalHeaders  Incoming request headers
-     * @param {object} authContext       { sub, username, role }
-     * @param {Buffer} [bodyBuffer]      Buffered body (to recalculate content-length)
+     * Strips auth and host, injects authenticated user metadata
+     * and per-role MCP overrides (readOnly, disabledTools).
+     * @param {object}   options
+     * @param {object}   options.originalHeaders  Incoming request headers
+     * @param {object}   options.authContext       { sub, username, role }
+     * @param {boolean}  options.readOnly          Role readOnly flag
+     * @param {boolean}  options.useAllow          True if role uses allow mode
+     * @param {string[]} [options.deny]            Denied tool categories (deny mode only)
+     * @param {Buffer}   [options.bodyBuffer]      Buffered body (to recalculate content-length)
      * @returns {object} Headers for the upstream request
      */
-    buildForwardHeaders(originalHeaders, authContext, bodyBuffer) {
+    buildForwardHeaders(options) {
+        const { originalHeaders, authContext, readOnly, useAllow, deny, bodyBuffer } = options;
         const headers = { ...originalHeaders };
         delete headers['authorization'];
         delete headers['host'];
         headers['x-authenticated-user'] = authContext.sub;
         headers['x-authenticated-username'] = authContext.username;
         headers['x-authenticated-role'] = authContext.role;
+
+        readOnly && (headers['x-mcp-read-only'] = String(readOnly));
+        if (!useAllow) {
+            headers['x-mcp-disabled-tools'] = deny.join(',');
+        }
 
         if (bodyBuffer) {
             headers['content-length'] = String(bodyBuffer.length);

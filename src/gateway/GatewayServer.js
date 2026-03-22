@@ -137,9 +137,16 @@ export class GatewayServer {
             return this.proxy.sendError(res, 403, 'Forbidden', 'No MCP role assigned to this user');
         }
 
-        const { role, allowedTools } = resolved;
-        const toolDisplay = allowedTools.includes('*') ? 'ALL tools' : allowedTools.join(', ');
-        console.log(`[gateway:rbac] Role resolved: "${role}" — enabled tools: [${toolDisplay}]`);
+        const { role, tools } = resolved;
+        const { allow, deny = [], readOnly = false } = tools;
+        const useAllow = Array.isArray(allow);
+
+        if (useAllow) {
+            const display = allow.includes('*') ? 'ALL tools' : allow.join(', ');
+            console.log(`[gateway:rbac] Role resolved: "${role}" — allow: [${display}] readOnly: ${readOnly}`);
+        } else {
+            console.log(`[gateway:rbac] Role resolved: "${role}" — deny: [${deny.join(', ')}] readOnly: ${readOnly}`);
+        }
 
         // -- Parse request body -----------------------------------------------
 
@@ -159,8 +166,8 @@ export class GatewayServer {
 
         // -- MCP interception: tools/call (block unauthorized) ----------------
 
-        if (reqBody?.method === 'tools/call') {
-            const { allowed, toolName } = this.interceptor.checkToolCall(reqBody, allowedTools);
+        if (useAllow && reqBody?.method === 'tools/call') {
+            const { allowed, toolName } = this.interceptor.checkToolCall(reqBody, allow);
             if (!allowed) {
                 console.warn(`[gateway:rbac] DENIED tools/call "${toolName}" — user="${user}" role="${role}" does not include this tool`);
                 res.writeHead(200, { 'content-type': 'application/json' });
@@ -172,15 +179,20 @@ export class GatewayServer {
         // -- Build forwarding headers -----------------------------------------
 
         const authContext = { sub, username: user, role };
-        const fwdHeaders = this.proxy.buildForwardHeaders(req.headers, authContext, reqBodyRaw);
+        const fwdHeaders = this.proxy.buildForwardHeaders({
+            originalHeaders: req.headers,
+            authContext,
+            readOnly,
+            useAllow,
+            deny,
+            bodyBuffer: reqBodyRaw,
+        });
 
-        // -- MCP interception: tools/list (filter response) -------------------
+        // -- MCP interception: tools/list (filter response — allow mode) ------
 
-        const needsFiltering = reqBody?.method === 'tools/list' && !allowedTools.includes('*');
-
-        if (needsFiltering) {
+        if (useAllow && !allow.includes('*') && reqBody?.method === 'tools/list') {
             this.proxy.forwardAndIntercept(req, res, fwdHeaders, reqBodyRaw, (proxyRes, upstreamBody) => {
-                this.filterToolsListResponse(res, proxyRes, upstreamBody, allowedTools, user, role);
+                this.filterToolsListResponse(res, proxyRes, upstreamBody, allow, user, role);
             });
             return;
         }
@@ -239,17 +251,28 @@ export class GatewayServer {
      * @private
      */
     printBanner() {
-        const toolSummary = Object.entries(this.roleResolver.roles)
-            .map(([r, def]) => `    ${r.padEnd(14)} ${def.tools.includes('*') ? 'ALL tools' : `${def.tools.length} tools`}`)
-            .join('\n');
-
-        const now = new Date().toLocaleString();
+        let toolSummary = '';
+        try {
+            toolSummary = Object.entries(this.roleResolver.roles)
+                .map(([r, def]) => {
+                    const { allow, deny = [], readOnly } = def.tools;
+                    const ro = readOnly ? 'RO' : 'RW';
+                    if (Array.isArray(allow)) {
+                        const countA = allow.includes('*') ? 'ALL tools' : `${allow.length} tools`;
+                        return `    ${r.padEnd(14)} allow ${countA.padEnd(12)} ${ro}`;
+                    }
+                    const countB = deny.includes('*') ? 'ALL tools' : `${deny.length} tools`;
+                    return `    ${r.padEnd(14)} deny ${countB.padEnd(13)} ${ro}`;
+                })
+                .join('\n');
+        }
+        catch { /* ignore */ }
 
         console.log(`
 ========================================
   MCP RBAC Gateway
 ========================================
-  Started   : ${now}
+  Started   : ${new Date().toLocaleString()}
   Listening : http://0.0.0.0:${this.port}
   Upstream  : ${this.proxy.upstreamUrl}
   Keycloak  : ${this.tokenVerifier.issuer}
