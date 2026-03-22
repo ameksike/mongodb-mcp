@@ -18,8 +18,9 @@
  * @see https://www.mongodb.com/docs/mcp-server/security-best-practices/
  *
  * Usage:
- *   node src/client/index.js                     # direct (no auth)
- *   node src/client/index.js --auth              # via Keycloak + Auth Proxy
+ *   node src/client/index.js                                    # direct (no auth)
+ *   node src/client/index.js --auth                             # auth with env vars
+ *   node src/client/index.js --auth --user mcp-admin --pass admin123
  */
 
 import 'dotenv/config';
@@ -31,6 +32,11 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 // Configuration
 // ---------------------------------------------------------------------------
 
+function parseArg(flag) {
+    const idx = process.argv.indexOf(flag);
+    return idx !== -1 && idx + 1 < process.argv.length ? process.argv[idx + 1] : undefined;
+}
+
 const useAuth = process.argv.includes('--auth');
 
 const DIRECT_URL = process.env.MCP_SERVER_URL
@@ -40,13 +46,11 @@ const PROXY_URL = process.env.MCP_PROXY_URL ?? 'http://127.0.0.1:4040';
 
 const SERVER_URL = useAuth ? PROXY_URL : DIRECT_URL;
 
-const {
-    KEYCLOAK_URL = 'http://localhost:8080',
-    KEYCLOAK_REALM = 'mcp',
-    KEYCLOAK_CLIENT_ID = 'mcp-client',
-    MCP_AUTH_USERNAME = 'mcpuser',
-    MCP_AUTH_PASSWORD = 'mcppass',
-} = process.env;
+const KEYCLOAK_URL = process.env.KEYCLOAK_URL ?? 'http://localhost:8080';
+const KEYCLOAK_REALM = process.env.KEYCLOAK_REALM ?? 'mcp';
+const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID ?? 'mcp-client';
+const MCP_AUTH_USERNAME = parseArg('--user') ?? process.env.MCP_AUTH_USERNAME ?? 'mcpuser';
+const MCP_AUTH_PASSWORD = parseArg('--pass') ?? process.env.MCP_AUTH_PASSWORD ?? 'mcppass';
 
 // ---------------------------------------------------------------------------
 // OAuth 2.1 — Resource Owner Password Grant (for testing only)
@@ -150,7 +154,7 @@ async function main() {
   MCP Test Client — Diagnostic Suite
 ========================================
   Target : ${SERVER_URL}
-  Auth   : ${useAuth ? 'OAuth 2.1 (Keycloak)' : 'none (direct)'}
+  Auth   : ${useAuth ? `OAuth 2.1 (Keycloak) — user: ${MCP_AUTH_USERNAME}` : 'none (direct)'}
 ========================================
 `);
 

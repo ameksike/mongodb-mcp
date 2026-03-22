@@ -91,11 +91,12 @@ see and can execute different sets of tools.
                           └──────────┘
 ```
 
-| Role           | Tools | Access Level                                  |
-|----------------|:-----:|-----------------------------------------------|
-| 🔑 `mcp-admin`   |  17   | Full access — all tools including `connect`   |
-| 📊 `mcp-analyst` |  14   | Read, query, analysis, export                 |
-| 👁️ `mcp-viewer`  |   6   | Basic read-only browsing                      |
+| Role              | Mode  | Access Level                                  |
+|-------------------|:-----:|-----------------------------------------------|
+| 🔑 `mcp-admin`    | allow | Full access — all tools (RW)                  |
+| 📊 `mcp-analyst`  | allow | 14 specific tools (RO)                        |
+| 👁️ `mcp-viewer`   | allow | 5 specific tools (RW)                         |
+| 👤 `mcp-guest`    | deny  | All except `atlas` category (RO)              |
 
 **When to use:** Production, teams with different access levels, compliance.
 
@@ -162,20 +163,27 @@ list resources, read resource, shutdown).
 ```
 mongodb-mcp/
 ├── src/
-│   ├── wrapper/index.js       # 🟢 MCP Server launcher
-│   ├── gateway/               # 🔴 RBAC Gateway
-│   │   ├── index.js           #    Gateway server
-│   │   ├── roles.json         #    Role-to-tools mapping
-│   │   └── context.md         #    Design document
-│   └── client/index.js        # 🧪 MCP test client (direct & auth modes)
+│   ├── wrapper/                 # 🟢 MCP Server launcher
+│   │   ├── index.js             #    Entry point
+│   │   └── McpServerLauncher.js #    Process manager (env, spawn, shutdown)
+│   ├── gateway/                 # 🔴 RBAC Gateway (OOP, SOLID/GRASP)
+│   │   ├── index.js             #    Entry point — config + startup
+│   │   ├── GatewayServer.js     #    Controller — HTTP server orchestration
+│   │   ├── TokenVerifier.js     #    JWT/JWKS token verification
+│   │   ├── RoleResolver.js      #    Role resolution + tool permissions
+│   │   ├── McpInterceptor.js    #    MCP message filtering/blocking
+│   │   └── ProxyHandler.js      #    HTTP reverse proxy to upstream
+│   └── client/index.js          # 🧪 MCP test client (direct & auth modes)
+├── cfg/
+│   └── roles.json               # 🔧 Role-to-tools mapping config
 ├── iac/
 │   ├── keycloak/
-│   │   └── realm-export.json  # 🔐 Keycloak realm (roles, users, scopes)
+│   │   └── realm-export.json    # 🔐 Keycloak realm (roles, users, scopes)
 ├── doc/
-│   └── gateway.md             # 📖 Full RBAC gateway guide
-├── docker-compose.yml         # 🐳 Keycloak + MCP Server + Gateway
-├── .env                       # ⚙️  Environment configuration
-└── .vscode/mcp.json           # 🆚 VS Code Copilot MCP config
+│   └── gateway.md               # 📖 Full RBAC gateway guide
+├── docker-compose.yml           # 🐳 Keycloak + MCP Server + Gateway
+├── .env                         # ⚙️  Environment configuration
+└── .vscode/mcp.json             # 🆚 VS Code Copilot MCP config
 ```
 
 ---
@@ -190,8 +198,11 @@ and supports both direct and authenticated modes:
 # 🟢 Direct — no authentication
 npm run mcp:client:start
 
-# 🔴 Via Gateway — with Keycloak token
+# 🔴 Via Gateway — with Keycloak token (uses .env defaults)
 npm run mcp:client:gateway
+
+# 🔴 Via Gateway — override user from the command line
+npm run mcp:client:gateway -- --user mcp-admin --pass admin123
 ```
 
 The client runs a diagnostic suite: initialize, ping, list tools, call a
@@ -208,8 +219,23 @@ The `.vscode/mcp.json` file provides two server entries:
 | `mongodb`          | `http://127.0.0.1:8008/mcp`     | None   |
 | `mongodb-gateway`  | `http://127.0.0.1:4040/mcp`     | Bearer |
 
-For `mongodb-gateway`, VS Code will prompt for a Keycloak token on connect.
-See [doc/gateway.md](doc/gateway.md) for how to obtain one.
+For `mongodb-gateway`, VS Code will prompt you to paste a Keycloak access token.
+Obtain one first (replace user/password as needed):
+
+```bash
+curl -s -X POST http://localhost:8080/realms/mcp/protocol/openid-connect/token \
+  -d "grant_type=password" \
+  -d "client_id=mcp-client" \
+  -d "username=mcp-admin" \
+  -d "password=admin123" \
+  -d "scope=openid mcp:access" | node -e "
+    let d=''; process.stdin.on('data',c=>d+=c);
+    process.stdin.on('end',()=>console.log(JSON.parse(d).access_token));
+  "
+```
+
+Copy the token and paste it when VS Code prompts.
+See [doc/gateway.md](doc/gateway.md) for more details and all available users.
 
 ---
 
@@ -242,7 +268,6 @@ npm run mcp:docker:stop
 | Document                              | Description                                          |
 |---------------------------------------|------------------------------------------------------|
 | [**doc/gateway.md**](doc/gateway.md)  | 🔴 RBAC Gateway — full guide with Keycloak examples  |
-| [**src/gateway/context.md**](src/gateway/context.md) | 🏗️ Gateway design decisions and architecture |
 
 ---
 
