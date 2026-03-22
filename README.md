@@ -8,6 +8,8 @@ Explore how to connect AI agents and LLM clients (Claude, VS Code Copilot,
 Cursor, etc.) to your MongoDB databases through the
 [Model Context Protocol](https://modelcontextprotocol.io/).
 
+![](./doc/img/rbac_gateway_shield.png)
+
 ---
 
 ## 📋 Table of Contents
@@ -282,7 +284,7 @@ npm run mcp:docker:stop
 | Document                              | Description                                          |
 |---------------------------------------|------------------------------------------------------|
 | [**doc/gateway.md**](doc/gateway.md)  | 🔴 RBAC Gateway, full guide with Keycloak examples  |
-| [**doc/gateway.md**](doc/remote.md)   | 🔴 Securing Remote MongoDB MCP Servers: An RBAC Gateway Architecture  |
+| [**doc/remote.md**](doc/remote.md)   | 🟢 Securing Remote MongoDB MCP Servers: An RBAC Gateway Architecture  |
 
 ---
 
