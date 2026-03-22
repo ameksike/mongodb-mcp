@@ -48,7 +48,7 @@ export class ProxyHandler {
      */
     forward(req, res, headers, body) {
         const upstream = new URL(req.url, this.upstreamUrl);
-        const opts = this._proxyOpts(upstream, req.method, headers);
+        const opts = this.proxyOpts(upstream, req.method, headers);
 
         console.log(`[gateway:proxy] Forwarding ${req.method} ${req.url} -> ${this.upstreamUrl}${upstream.pathname}`);
 
@@ -60,10 +60,10 @@ export class ProxyHandler {
 
         proxyReq.on('error', (err) => {
             console.error(`[gateway] upstream error: ${err.message}`);
-            ProxyHandler.sendError(res, 502, 'Bad Gateway', err.message);
+            this.sendError(res, 502, 'Bad Gateway', err.message);
         });
 
-        this._sendBody(proxyReq, req, body);
+        this.sendBody(proxyReq, req, body);
     }
 
     /**
@@ -77,29 +77,29 @@ export class ProxyHandler {
      */
     forwardAndIntercept(req, res, headers, body, onResponse) {
         const upstream = new URL(req.url, this.upstreamUrl);
-        const opts = this._proxyOpts(upstream, req.method, headers);
+        const opts = this.proxyOpts(upstream, req.method, headers);
 
         console.log(`[gateway:proxy] Forwarding tools/list -> ${this.upstreamUrl}${upstream.pathname} (will filter response)`);
 
         const proxyReq = httpRequest(opts, async (proxyRes) => {
             console.log(`[gateway:proxy] Upstream responded: ${proxyRes.statusCode} — applying RBAC filter...`);
-            const upstreamBody = await ProxyHandler.collectBody(proxyRes);
+            const upstreamBody = await this.collectBody(proxyRes);
             onResponse(proxyRes, upstreamBody);
         });
 
         proxyReq.on('error', (err) => {
             console.error(`[gateway] upstream error: ${err.message}`);
-            ProxyHandler.sendError(res, 502, 'Bad Gateway', err.message);
+            this.sendError(res, 502, 'Bad Gateway', err.message);
         });
 
-        this._sendBody(proxyReq, req, body);
+        this.sendBody(proxyReq, req, body);
     }
 
     /**
      * Build http.request options from a parsed URL.
      * @private
      */
-    _proxyOpts(url, method, headers) {
+    proxyOpts(url, method, headers) {
         return {
             hostname: url.hostname,
             port: url.port,
@@ -113,7 +113,7 @@ export class ProxyHandler {
      * Send the appropriate body to the proxy request.
      * @private
      */
-    _sendBody(proxyReq, req, body) {
+    sendBody(proxyReq, req, body) {
         if (body) {
             proxyReq.end(body);
         } else if (req.method === 'GET' || req.method === 'DELETE') {
@@ -128,7 +128,7 @@ export class ProxyHandler {
      * @param {import('node:stream').Readable} stream
      * @returns {Promise<Buffer>}
      */
-    static collectBody(stream) {
+    collectBody(stream) {
         return new Promise((resolve, reject) => {
             const chunks = [];
             stream.on('data', (c) => chunks.push(c));
@@ -144,7 +144,7 @@ export class ProxyHandler {
      * @param {string} error    Error label
      * @param {string} [detail] Additional detail
      */
-    static sendError(res, status, error, detail, extraHeaders = {}) {
+    sendError(res, status, error, detail, extraHeaders = {}) {
         if (res.headersSent) return;
         res.writeHead(status, { 'content-type': 'application/json', ...extraHeaders });
         res.end(JSON.stringify({ error, ...(detail && { detail }) }));

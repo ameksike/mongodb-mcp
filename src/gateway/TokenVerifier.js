@@ -49,7 +49,7 @@ export class TokenVerifier {
      * @param {string} header  Authorization header (e.g. "Bearer eyJ...")
      * @returns {string|null}  Raw token or null if malformed
      */
-    static extractBearer(header) {
+    extractBearer(header) {
         const match = (header ?? '').match(/^Bearer\s+(\S+)$/i);
         return match ? match[1] : null;
     }

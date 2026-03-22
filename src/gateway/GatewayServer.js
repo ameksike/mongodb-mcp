@@ -63,7 +63,7 @@ export class GatewayServer {
             bearer_methods_supported: ['header'],
         };
 
-        this.server = createServer((req, res) => this._handleRequest(req, res));
+        this.server = createServer((req, res) => this.handleRequest(req, res));
     }
 
     /**
@@ -71,14 +71,14 @@ export class GatewayServer {
      */
     async start() {
         await this.roleResolver.load();
-        this.server.listen(this.port, '0.0.0.0', () => this._printBanner());
+        this.server.listen(this.port, '0.0.0.0', () => this.printBanner());
     }
 
     /**
      * Main request handler — orchestrates the full gateway pipeline.
      * @private
      */
-    async _handleRequest(req, res) {
+    async handleRequest(req, res) {
         // CORS preflight
         if (req.method === 'OPTIONS') {
             res.writeHead(204, CORS_HEADERS);
@@ -101,11 +101,11 @@ export class GatewayServer {
 
         console.log(`[gateway:req] ${req.method} ${req.url} — incoming request`);
 
-        const token = TokenVerifier.extractBearer(req.headers['authorization']);
+        const token = this.tokenVerifier.extractBearer(req.headers['authorization']);
         if (!token) {
             console.warn(`[gateway:auth] REJECTED — no Bearer token provided`);
             const metaUrl = `${this.gatewayUrl}/.well-known/oauth-protected-resource`;
-            return ProxyHandler.sendError(res, 401, 'Unauthorized', 'Missing or malformed Bearer token', {
+            return this.proxy.sendError(res, 401, 'Unauthorized', 'Missing or malformed Bearer token', {
                 'www-authenticate': `Bearer resource_metadata="${metaUrl}"`,
             });
         }
@@ -118,7 +118,7 @@ export class GatewayServer {
             console.log(`[gateway:auth] Token verified — issuer=${payload.iss} aud=${payload.aud} scope="${payload.scope}"`);
         } catch (err) {
             console.warn(`[gateway:auth] Token REJECTED — ${err.message}`);
-            return ProxyHandler.sendError(res, 403, 'Forbidden', err.message);
+            return this.proxy.sendError(res, 403, 'Forbidden', err.message);
         }
 
         // -- Role resolution --------------------------------------------------
@@ -134,7 +134,7 @@ export class GatewayServer {
 
         if (!resolved) {
             console.warn(`[gateway:rbac] No matching MCP role for user="${user}" — access denied`);
-            return ProxyHandler.sendError(res, 403, 'Forbidden', 'No MCP role assigned to this user');
+            return this.proxy.sendError(res, 403, 'Forbidden', 'No MCP role assigned to this user');
         }
 
         const { role, allowedTools } = resolved;
@@ -147,7 +147,7 @@ export class GatewayServer {
         let reqBodyRaw = null;
 
         if (req.method === 'POST') {
-            reqBodyRaw = await ProxyHandler.collectBody(req);
+            reqBodyRaw = await this.proxy.collectBody(req);
             try {
                 reqBody = JSON.parse(reqBodyRaw.toString());
             } catch { /* not JSON */ }
@@ -180,7 +180,7 @@ export class GatewayServer {
 
         if (needsFiltering) {
             this.proxy.forwardAndIntercept(req, res, fwdHeaders, reqBodyRaw, (proxyRes, upstreamBody) => {
-                this._filterToolsListResponse(res, proxyRes, upstreamBody, allowedTools, user, role);
+                this.filterToolsListResponse(res, proxyRes, upstreamBody, allowedTools, user, role);
             });
             return;
         }
@@ -195,7 +195,7 @@ export class GatewayServer {
      * Handles both JSON and SSE content types.
      * @private
      */
-    _filterToolsListResponse(res, proxyRes, upstreamBody, allowedTools, user, role) {
+    filterToolsListResponse(res, proxyRes, upstreamBody, allowedTools, user, role) {
         const contentType = proxyRes.headers['content-type'] ?? '';
 
         if (contentType.includes('text/event-stream')) {
@@ -238,7 +238,7 @@ export class GatewayServer {
      * Print the startup banner with configuration details.
      * @private
      */
-    _printBanner() {
+    printBanner() {
         const toolSummary = Object.entries(this.roleResolver.roles)
             .map(([r, def]) => `    ${r.padEnd(14)} ${def.tools.includes('*') ? 'ALL tools' : `${def.tools.length} tools`}`)
             .join('\n');
