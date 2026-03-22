@@ -1,5 +1,7 @@
 # Securing Remote MongoDB MCP Servers: An RBAC Gateway Architecture
 
+![](./img/rbac_gateway_shield.png)
+
 ## Abstract
 
 The Model Context Protocol (MCP) enables AI agents to interact with external

@@ -7,7 +7,7 @@
         "readOnly": false
       }
     },
-    "mcp-analyst2": {
+    "mcp-analyst": {
       "description": "Read, query, analysis, and export access",
       "tools": {
         "allow": [
@@ -25,15 +25,7 @@
           "mongodb-logs",
           "search-knowledge",
           "list-knowledge-sources"
-        ],
-        "readOnly": true
-      }
-    },
-    "mcp-analyst": {
-      "description": "Read, query, analysis, and export access",
-      "tools": {
-        "deny": ["mongodb"],
-        "readOnly": true
+        ]
       }
     },
     "mcp-viewer": {
