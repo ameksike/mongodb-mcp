@@ -28,7 +28,6 @@
       "tools": [
         "find",
         "count",
-        "list-databases",
         "list-collections",
         "collection-schema",
         "collection-indexes"
