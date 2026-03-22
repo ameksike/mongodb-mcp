@@ -43,36 +43,89 @@ and the [MCP Authorization specification](https://modelcontextprotocol.io/docs/t
 - Roles are extracted from the standard `realm_access.roles` JWT claim
 - Deny-by-default: users without a recognized role get zero tools
 - Both tool listing and tool execution are gated by role
+- **Defense in depth:** per-role `readOnly` and `disabledTools` overrides are
+  forwarded as `x-mongodb-mcp-read-only` / `x-mongodb-mcp-disabled-tools`
+  headers to the upstream MCP Server, which enforces them natively (overrides
+  can only restrict, never widen access)
 
 ## Roles and Permissions
 
-| Role           | Tools | Description                                           |
-|----------------|:-----:|-------------------------------------------------------|
-| `mcp-admin`    |  17   | Full access to all MCP tools                          |
-| `mcp-analyst`  |  14   | Read, query, analysis, and export (no connect/atlas)  |
-| `mcp-viewer`   |   6   | Basic read-only browsing                              |
+Each role in `cfg/roles.json` defines a `tools` object with **mutually exclusive**
+`allow` or `deny` modes plus an optional `readOnly` flag:
 
-### Detailed Tool Matrix
+- **`tools.allow`** — Fine-grained tool allow-list enforced at the gateway proxy layer.
+  The gateway intercepts `tools/list` responses to filter visible tools and blocks
+  unauthorized `tools/call` requests with a JSON-RPC error.
+- **`tools.deny`** — MCP Server native category names (e.g. `mongodb`, `atlas`),
+  forwarded as `x-mongodb-mcp-disabled-tools` header. The MCP Server handles
+  filtering natively — the gateway acts as a transparent proxy.
+- **`tools.readOnly`** — Read-only mode, forwarded as `x-mongodb-mcp-read-only`
+  header. Disables create/update/delete operations at the MCP Server level.
 
-| Tool                             | admin | analyst | viewer |
-|----------------------------------|:-----:|:-------:|:------:|
-| `find`                           |   x   |    x    |   x    |
-| `count`                          |   x   |    x    |   x    |
-| `list-databases`                 |   x   |    x    |   x    |
-| `list-collections`               |   x   |    x    |   x    |
-| `collection-schema`              |   x   |    x    |   x    |
-| `collection-indexes`             |   x   |    x    |   x    |
-| `aggregate`                      |   x   |    x    |        |
-| `explain`                        |   x   |    x    |        |
-| `db-stats`                       |   x   |    x    |        |
-| `collection-storage-size`        |   x   |    x    |        |
-| `export`                         |   x   |    x    |        |
-| `mongodb-logs`                   |   x   |    x    |        |
-| `search-knowledge`               |   x   |    x    |        |
-| `list-knowledge-sources`         |   x   |    x    |        |
-| `connect`                        |   x   |         |        |
-| `atlas-local-connect-deployment` |   x   |         |        |
-| `atlas-local-list-deployments`   |   x   |         |        |
+> `allow` and `deny` are mutually exclusive — a role uses one or the other, never both.
+
+| Role            | Mode  | Value                | readOnly | Description                        |
+|-----------------|:-----:|----------------------|:--------:|------------------------------------|
+| `mcp-admin`     | allow | `["*"]`              | `false`  | Full access to all MCP tools       |
+| `mcp-analyst`   | allow | 14 specific tools    | `true`   | Read, query, analysis, and export  |
+| `mcp-demo`      | deny  | `["mongodb"]`        | `true`   | All except mongodb category        |
+| `mcp-viewer`    | allow | 5 specific tools     | _(none)_ | Basic read-only browsing           |
+| `mcp-guest`     | deny  | `["atlas"]`          | `true`   | All except atlas category          |
+
+The MCP Server starts with the most permissive base configuration
+(`readOnly=false`, `disabledTools=none`, `allowRequestOverrides=true`).
+Per-request overrides can only make things **stricter**, never more
+permissive — this is enforced by the MCP Server itself.
+
+### How overrides work (MCP Server native)
+
+The MongoDB MCP Server reads configuration overrides from HTTP headers using
+the `x-mongodb-mcp-*` prefix (kebab-case → camelCase conversion):
+
+| Header                            | Config key       | Override behavior                                       |
+|-----------------------------------|------------------|---------------------------------------------------------|
+| `x-mongodb-mcp-read-only`        | `readOnly`       | One-way: can only set to `true`, never back to `false`  |
+| `x-mongodb-mcp-disabled-tools`   | `disabledTools`  | Merge: adds to the base list, never removes             |
+
+This requires `MDB_MCP_ALLOW_REQUEST_OVERRIDES=true` on the MCP Server (set
+by default in the wrapper launcher).
+
+### Allow mode — Detailed Tool Matrix
+
+Roles using `allow` have their tools explicitly listed. The gateway filters
+`tools/list` and blocks `tools/call` for unlisted tools.
+
+| Tool                       | admin | analyst  | viewer |
+|----------------------------|:-----:|:--------:|:------:|
+| `find`                     |   x   |    x     |   x    |
+| `count`                    |   x   |    x     |   x    |
+| `list-collections`         |   x   |    x     |   x    |
+| `collection-schema`        |   x   |    x     |   x    |
+| `collection-indexes`       |   x   |    x     |   x    |
+| `aggregate`                |   x   |    x     |        |
+| `explain`                  |   x   |    x     |        |
+| `list-databases`           |   x   |    x     |        |
+| `db-stats`                 |   x   |    x     |        |
+| `collection-storage-size`  |   x   |    x     |        |
+| `export`                   |   x   |    x     |        |
+| `mongodb-logs`             |   x   |    x     |        |
+| `search-knowledge`         |   x   |    x     |        |
+| `list-knowledge-sources`   |   x   |    x     |        |
+| _(all other tools)_        |   x   |          |        |
+
+### Deny mode — Category-based exclusion
+
+Roles using `deny` delegate filtering to the MCP Server's native
+`disabledTools` mechanism. The gateway forwards the categories as
+the `x-mongodb-mcp-disabled-tools` header.
+
+| Role          | Denied categories | Effect                                  |
+|---------------|-------------------|-----------------------------------------|
+| `mcp-analyst` | `mongodb`         | All mongodb tools disabled              |
+| `mcp-guest`   | `atlas`           | All atlas tools disabled                |
+
+Valid category values are defined by the MCP Server: `mongodb`, `atlas`,
+`create`, `update`, `delete`, and individual tool names.
 
 The mapping is defined in `cfg/roles.json` and can be edited without
 code changes. Restart the gateway after modifying.
@@ -82,17 +135,17 @@ code changes. Restart the gateway after modifying.
 The gateway follows OOP principles (SOLID, SoC, GRASP) with clear separation
 of responsibilities:
 
-| File                | Responsibility                                    |
-|---------------------|---------------------------------------------------|
-| `index.js`          | Entry point — loads config and starts the server   |
-| `GatewayServer.js`  | Controller — HTTP server, request orchestration    |
-| `TokenVerifier.js`  | JWT/JWKS verification and scope validation         |
-| `RoleResolver.js`   | Role resolution from JWT claims, tool permissions  |
-| `McpInterceptor.js` | MCP JSON-RPC filtering (`tools/list`, `tools/call`)|
-| `ProxyHandler.js`   | HTTP reverse proxy to the upstream MCP Server      |
+| File                | Responsibility                                            |
+|---------------------|-----------------------------------------------------------|
+| `index.js`          | Entry point — loads config and starts the server           |
+| `GatewayServer.js`  | Controller — HTTP server, request orchestration (DI-ready) |
+| `TokenVerifier.js`  | JWT/JWKS verification and scope validation                 |
+| `RoleResolver.js`   | Role resolution from JWT claims, tool permissions          |
+| `McpInterceptor.js` | MCP JSON-RPC filtering (`tools/list`, `tools/call`)        |
+| `ProxyHandler.js`   | HTTP reverse proxy with `x-mongodb-mcp-*` header injection |
 
-For detailed design decisions and class interaction diagrams, see the
-internal design document in `src/gateway/`.
+`GatewayServer` supports Dependency Injection — pass pre-built instances via
+the `deps` parameter to override any component for testing or customization.
 
 ## Predefined Keycloak Users
 
@@ -187,6 +240,7 @@ Expected output:
 ========================================
   MCP RBAC Gateway
 ========================================
+  Started   : 3/22/2026, 10:00:00 AM
   Listening : http://0.0.0.0:4040
   Upstream  : http://127.0.0.1:8008
   Keycloak  : http://localhost:8080/realms/mcp
@@ -194,9 +248,10 @@ Expected output:
   Scope     : mcp:access
 ----------------------------------------
   Role permissions:
-    mcp-admin      ALL tools
-    mcp-analyst    14 tools
-    mcp-viewer     6 tools
+    mcp-admin      allow ALL tools    RW
+    mcp-analyst    allow 14 tools     RO
+    mcp-viewer     allow 5 tools      RW
+    mcp-guest      deny  1 tools      RO
 ========================================
 ```
 
@@ -566,11 +621,11 @@ curl -s -X POST http://localhost:8080/realms/mcp/protocol/openid-connect/token \
 
 ### Available users for testing
 
-| Username       | Password     | Role           | Tools |
-|----------------|--------------|----------------|:-----:|
-| `mcp-admin`    | `admin123`   | `mcp-admin`    |  17   |
-| `mcp-analyst`  | `analyst123` | `mcp-analyst`  |  14   |
-| `mcp-viewer`   | `viewer123`  | `mcp-viewer`   |   6   |
+| Username       | Password     | Role           | Mode  | Access                    |
+|----------------|--------------|----------------|:-----:|---------------------------|
+| `mcp-admin`    | `admin123`   | `mcp-admin`    | allow | All tools                 |
+| `mcp-analyst`  | `analyst123` | `mcp-analyst`  | deny  | All except mongodb category |
+| `mcp-viewer`   | `viewer123`  | `mcp-viewer`   | allow | 5 specific tools          |
 
 > Tokens expire after 5 minutes. Obtain a new one if VS Code returns 403.
 
@@ -578,22 +633,47 @@ curl -s -X POST http://localhost:8080/realms/mcp/protocol/openid-connect/token \
 
 ## Customizing Roles
 
-Edit `cfg/roles.json`:
+Edit `cfg/roles.json`. Each role has a `description` and a `tools` object.
+The `tools` object uses **either** `allow` or `deny` (mutually exclusive),
+plus an optional `readOnly` flag:
 
 ```json
 {
   "roles": {
-    "mcp-admin":   { "description": "Full access",   "tools": ["*"] },
-    "mcp-analyst": { "description": "Read + query",   "tools": ["find", "aggregate", "..."] },
-    "mcp-viewer":  { "description": "Read-only",      "tools": ["find", "count", "..."] },
-    "mcp-custom":  { "description": "Custom role",    "tools": ["find", "list-databases"] }
+    "mcp-admin": {
+      "description": "Full access",
+      "tools": { "allow": ["*"], "readOnly": false }
+    },
+    "mcp-analyst": {
+      "description": "All except mongodb category",
+      "tools": { "deny": ["mongodb"], "readOnly": true }
+    },
+    "mcp-viewer": {
+      "description": "Basic read-only browsing",
+      "tools": { "allow": ["find", "count", "list-collections", "collection-schema", "collection-indexes"] }
+    },
+    "mcp-custom": {
+      "description": "Custom deny-based role",
+      "tools": { "deny": ["atlas", "delete"], "readOnly": true }
+    }
   },
   "defaultRole": null,
   "rolePrecedence": ["mcp-admin", "mcp-analyst", "mcp-custom", "mcp-viewer"]
 }
 ```
 
-- `["*"]` grants access to all tools
+### Allow mode (gateway-enforced)
+- `tools.allow: ["*"]` grants access to all tools
+- `tools.allow: ["find", "count", ...]` — only listed tools are visible and callable
+- The gateway intercepts `tools/list` and `tools/call` to enforce the list
+
+### Deny mode (MCP Server-enforced)
+- `tools.deny: ["mongodb"]` — categories forwarded via `x-mongodb-mcp-disabled-tools` header
+- The MCP Server handles filtering natively — the gateway proxies transparently
+- Valid category values: `mongodb`, `atlas`, `create`, `update`, `delete`, and individual tool names
+
+### Common options
+- `tools.readOnly` — forwarded via `x-mongodb-mcp-read-only` header; can only restrict (`false` → `true`), never widen
 - `defaultRole` (set to a role name or `null`) is used when no matching role is found
 - `rolePrecedence` determines which role wins when a user has multiple realm roles
 - After editing, restart the gateway — no other changes needed

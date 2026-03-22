@@ -91,11 +91,12 @@ see and can execute different sets of tools.
                           └──────────┘
 ```
 
-| Role           | Tools | Access Level                                  |
-|----------------|:-----:|-----------------------------------------------|
-| 🔑 `mcp-admin`   |  17   | Full access — all tools including `connect`   |
-| 📊 `mcp-analyst` |  14   | Read, query, analysis, export                 |
-| 👁️ `mcp-viewer`  |   6   | Basic read-only browsing                      |
+| Role              | Mode  | Access Level                                  |
+|-------------------|:-----:|-----------------------------------------------|
+| 🔑 `mcp-admin`    | allow | Full access — all tools (RW)                  |
+| 📊 `mcp-analyst`  | allow | 14 specific tools (RO)                        |
+| 👁️ `mcp-viewer`   | allow | 5 specific tools (RW)                         |
+| 👤 `mcp-guest`    | deny  | All except `atlas` category (RO)              |
 
 **When to use:** Production, teams with different access levels, compliance.
 
@@ -162,7 +163,9 @@ list resources, read resource, shutdown).
 ```
 mongodb-mcp/
 ├── src/
-│   ├── wrapper/index.js         # 🟢 MCP Server launcher
+│   ├── wrapper/                 # 🟢 MCP Server launcher
+│   │   ├── index.js             #    Entry point
+│   │   └── McpServerLauncher.js #    Process manager (env, spawn, shutdown)
 │   ├── gateway/                 # 🔴 RBAC Gateway (OOP, SOLID/GRASP)
 │   │   ├── index.js             #    Entry point — config + startup
 │   │   ├── GatewayServer.js     #    Controller — HTTP server orchestration
