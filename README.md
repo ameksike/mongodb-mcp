@@ -263,14 +263,6 @@ npm run mcp:docker:stop
 
 ---
 
-## 📖 Documentation
-
-| Document                              | Description                                          |
-|---------------------------------------|------------------------------------------------------|
-| [**doc/gateway.md**](doc/gateway.md)  | 🔴 RBAC Gateway — full guide with Keycloak examples  |
-
----
-
 ## 📜 npm Scripts
 
 | Script                        | Mode  | Description                                    |
@@ -285,16 +277,25 @@ npm run mcp:docker:stop
 
 ---
 
+## 📖 Documentation
+
+| Document                              | Description                                          |
+|---------------------------------------|------------------------------------------------------|
+| [**doc/gateway.md**](doc/gateway.md)  | 🔴 RBAC Gateway, full guide with Keycloak examples  |
+| [**doc/gateway.md**](doc/remote.md)   | 🔴 Securing Remote MongoDB MCP Servers: An RBAC Gateway Architecture  |
+
+---
+
 ## 📚 References
 
-- [MongoDB MCP Server — Overview & Use Cases](https://www.mongodb.com/docs/mcp-server/overview/#use-cases)
-- [MongoDB MCP Server — Get Started (Self-Managed)](https://www.mongodb.com/docs/mcp-server/get-started/?client=augment&deployment-type=self)
-- [MongoDB MCP Server — Security Best Practices](https://www.mongodb.com/docs/mcp-server/security-best-practices/)
-- [MongoDB MCP Server — Tools Reference](https://www.mongodb.com/docs/mcp-server/tools/)
-- [MCP Specification — Transports](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports)
-- [MCP Specification — Lifecycle](https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle)
+- [MongoDB MCP Server: Overview & Use Cases](https://www.mongodb.com/docs/mcp-server/overview/#use-cases)
+- [MongoDB MCP Server: Get Started (Self-Managed)](https://www.mongodb.com/docs/mcp-server/get-started/?client=augment&deployment-type=self)
+- [MongoDB MCP Server: Security Best Practices](https://www.mongodb.com/docs/mcp-server/security-best-practices/)
+- [MongoDB MCP Server: Tools Reference](https://www.mongodb.com/docs/mcp-server/tools/)
+- [MCP Specification: Transports](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports)
+- [MCP Specification: Lifecycle](https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle)
 - [MCP Authorization Tutorial](https://modelcontextprotocol.io/docs/tutorials/security/authorization)
-- [LM Studio — Using MCP via API](https://lmstudio.ai/docs/developer/core/mcp)
+- [LM Studio: Using MCP via API](https://lmstudio.ai/docs/developer/core/mcp)
 
 ---
 
